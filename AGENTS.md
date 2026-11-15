@@ -8,7 +8,8 @@
 
 ## 技术约束
 
-- 工具链固定为 Gradle 9.9.0（wrapper）+ AGP 9.5.1 + Kotlin 2.4.21 + JDK 21 + compileSdk 36；
+- 工具链固定为 Gradle 9.9.0（wrapper）+ AGP 9.2.1 + Kotlin 2.4.21 + JDK 21 + compileSdk 36；
+  AGP 上限由 Android Studio 决定（Studio 2026.1 → AGP 9.2.1），升 AGP 前先确认 IDE 是否支持；
   AGP 9 起 Kotlin 由 AGP 内置，**不要**再加 `org.jetbrains.kotlin.android` 插件，Compose 编译器插件仍要保留。
   升级任意一项都要先跑通 `:core:test`、`:app:lintDebug`、`:app:assembleDebug` 并在真机验证。
 - Kotlin / Gradle KTS 缩进使用 **tab**（`.editorconfig` 的 `[*.{kt,kts}]`），提交前不要用 IDE 的“重排为空格”。

@@ -56,8 +56,11 @@ app/     设置页（Compose Material3）、一键添加到桌面、预览
 
 ## 开发
 
-工具链：Gradle 9.9.0（wrapper 自带）、AGP 9.5.1（内置 Kotlin，无需 `kotlin-android` 插件）、Kotlin
+工具链：Gradle 9.9.0（wrapper 自带）、AGP 9.2.1（内置 Kotlin，无需 `kotlin-android` 插件）、Kotlin
 2.4.21、JDK 21、compileSdk 36。
+
+AGP 版本受 Android Studio 限制：Studio 2026.1 最高支持 AGP 9.2.1，所以没有继续往上跟。Gradle 必须 ≥ 9.6
+（AGP 9.x 的要求），也不能退回 8.x —— Gradle 9.6 起 AGP 8.x 无法启动。
 
 要求 JDK 17+（推荐 21）与 Android SDK 36（`platforms;android-36` + `build-tools;36.0.0` 或更高）。
 
