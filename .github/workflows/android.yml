@@ -2,7 +2,7 @@ name: android
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
   pull_request:
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
       - name: Install SDK components
         run: |
           sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;35.0.0"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Unit tests
         run: ./gradlew :core:test

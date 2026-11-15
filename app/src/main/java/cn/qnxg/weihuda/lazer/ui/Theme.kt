@@ -16,18 +16,18 @@ val Success = Color(0xFF2E7D32)
 val Warning = Color(0xFFE08600)
 
 private val ColorScheme = lightColorScheme(
-    primary = Brand,
-    onPrimary = Color.White,
-    secondary = BrandDark,
-    background = PageBackground,
-    onBackground = Ink,
-    surface = Color.White,
-    onSurface = Ink,
-    outline = Line,
-    error = Danger,
+	primary = Brand,
+	onPrimary = Color.White,
+	secondary = BrandDark,
+	background = PageBackground,
+	onBackground = Ink,
+	surface = Color.White,
+	onSurface = Ink,
+	outline = Line,
+	error = Danger,
 )
 
 @Composable
 fun LazerTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = ColorScheme, content = content)
+	MaterialTheme(colorScheme = ColorScheme, content = content)
 }

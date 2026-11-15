@@ -13,26 +13,26 @@ import cn.qnxg.weihuda.widget.refresh.WidgetRefresh
  */
 class CourseWidgetReceiver : GlanceAppWidgetReceiver() {
 
-    override val glanceAppWidget: GlanceAppWidget = CourseWidget()
+	override val glanceAppWidget: GlanceAppWidget = CourseWidget()
 
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray,
-    ) {
-        super.onUpdate(context, appWidgetManager, appWidgetIds)
-        WidgetRefresh.ensurePeriodic(context)
-        WidgetRefresh.enqueueNow(context)
-    }
+	override fun onUpdate(
+		context: Context,
+		appWidgetManager: AppWidgetManager,
+		appWidgetIds: IntArray,
+	) {
+		super.onUpdate(context, appWidgetManager, appWidgetIds)
+		WidgetRefresh.ensurePeriodic(context)
+		WidgetRefresh.enqueueNow(context)
+	}
 
-    override fun onEnabled(context: Context) {
-        super.onEnabled(context)
-        WidgetRefresh.ensurePeriodic(context)
-        WidgetRefresh.enqueueNow(context)
-    }
+	override fun onEnabled(context: Context) {
+		super.onEnabled(context)
+		WidgetRefresh.ensurePeriodic(context)
+		WidgetRefresh.enqueueNow(context)
+	}
 
-    override fun onDisabled(context: Context) {
-        super.onDisabled(context)
-        WidgetRefresh.cancelAll(context)
-    }
+	override fun onDisabled(context: Context) {
+		super.onDisabled(context)
+		WidgetRefresh.cancelAll(context)
+	}
 }

@@ -15,19 +15,19 @@ import cn.qnxg.weihuda.widget.data.WidgetStore
  */
 object CourseWidgets {
 
-    /** 按当前设置拉取一次数据，写入快照并重建桌面上的小组件。 */
-    suspend fun refresh(context: Context, settings: AppSettings): WidgetSnapshot {
-        val snapshot = SnapshotLoader.load(context, settings)
-        WidgetStore.write(context, snapshot)
-        CourseWidget().updateAll(context)
-        return snapshot
-    }
+	/** 按当前设置拉取一次数据，写入快照并重建桌面上的小组件。 */
+	suspend fun refresh(context: Context, settings: AppSettings): WidgetSnapshot {
+		val snapshot = SnapshotLoader.load(context, settings)
+		WidgetStore.write(context, snapshot)
+		CourseWidget().updateAll(context)
+		return snapshot
+	}
 
-    /** 请求把小组件固定到桌面，返回 false 表示当前启动器不支持一键添加。 */
-    fun pin(context: Context): Boolean {
-        val manager = AppWidgetManager.getInstance(context)
-        val provider = ComponentName(context, CourseWidgetReceiver::class.java)
-        return manager.isRequestPinAppWidgetSupported &&
-            manager.requestPinAppWidget(provider, null, null)
-    }
+	/** 请求把小组件固定到桌面，返回 false 表示当前启动器不支持一键添加。 */
+	fun pin(context: Context): Boolean {
+		val manager = AppWidgetManager.getInstance(context)
+		val provider = ComponentName(context, CourseWidgetReceiver::class.java)
+		return manager.isRequestPinAppWidgetSupported &&
+			manager.requestPinAppWidget(provider, null, null)
+	}
 }

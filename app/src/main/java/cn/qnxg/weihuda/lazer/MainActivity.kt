@@ -8,13 +8,13 @@ import cn.qnxg.weihuda.lazer.ui.LazerTheme
 import cn.qnxg.weihuda.lazer.ui.SettingsScreen
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
-        super.onCreate(savedInstanceState)
-        setContent {
-            LazerTheme {
-                SettingsScreen()
-            }
-        }
-    }
+	override fun onCreate(savedInstanceState: Bundle?) {
+		enableEdgeToEdge()
+		super.onCreate(savedInstanceState)
+		setContent {
+			LazerTheme {
+				SettingsScreen()
+			}
+		}
+	}
 }

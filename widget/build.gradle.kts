@@ -1,42 +1,41 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
-    // Glance 是 Compose 风格 API，本模块自己写 @Composable，必须挂 Compose 编译器插件
-    alias(libs.plugins.kotlin.compose)
+	alias(libs.plugins.android.library)
+	// Glance 是 Compose 风格 API，本模块自己写 @Composable，必须挂 Compose 编译器插件
+	alias(libs.plugins.kotlin.compose)
 }
 
 android {
-    namespace = "cn.qnxg.weihuda.widget"
-    compileSdk = libs.versions.androidCompileSdk.get().toInt()
-    // 只装了 android-36.1 的环境（如 Android 16 QPR2 预览）可在本地 gradle.properties 里
-    // 设置 compileSdkMinor=1、buildToolsVersion=36.1.0，仓库默认按标准 android-36 构建。
-    (findProperty("compileSdkMinor") as String?)?.let { compileSdkMinor = it.toInt() }
-    (findProperty("buildToolsVersion") as String?)?.let { buildToolsVersion = it }
+	namespace = "cn.qnxg.weihuda.widget"
+	compileSdk = libs.versions.androidCompileSdk.get().toInt()
+	// 只装了 android-36.1 的环境（如 Android 16 QPR2 预览）可在本地 gradle.properties 里
+	// 设置 compileSdkMinor=1、buildToolsVersion=36.1.0，仓库默认按标准 android-36 构建。
+	(findProperty("compileSdkMinor") as String?)?.let { compileSdkMinor = it.toInt() }
+	(findProperty("buildToolsVersion") as String?)?.let { buildToolsVersion = it }
 
-    defaultConfig {
-        minSdk = libs.versions.androidMinSdk.get().toInt()
-        consumerProguardFiles("consumer-rules.pro")
-    }
+	defaultConfig {
+		minSdk = libs.versions.androidMinSdk.get().toInt()
+		consumerProguardFiles("consumer-rules.pro")
+	}
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
+	compileOptions {
+		sourceCompatibility = JavaVersion.VERSION_17
+		targetCompatibility = JavaVersion.VERSION_17
+	}
 }
 
 kotlin {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_17)
-    }
+	compilerOptions {
+		jvmTarget.set(JvmTarget.JVM_17)
+	}
 }
 
 dependencies {
-    api(project(":core"))
+	api(project(":core"))
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.work.runtime.ktx)
-    implementation(libs.kotlinx.coroutines.android)
+	implementation(libs.androidx.core.ktx)
+	implementation(libs.androidx.glance.appwidget)
+	implementation(libs.androidx.work.runtime.ktx)
+	implementation(libs.kotlinx.coroutines.android)
 }

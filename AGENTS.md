@@ -8,8 +8,10 @@
 
 ## 技术约束
 
-- 工具链固定为 Gradle 9.3.0（wrapper）+ AGP 8.13.2 + Kotlin 2.4.21 + JDK 21 + compileSdk 36；
+- 工具链固定为 Gradle 9.9.0（wrapper）+ AGP 9.5.1 + Kotlin 2.4.21 + JDK 21 + compileSdk 36；
+  AGP 9 起 Kotlin 由 AGP 内置，**不要**再加 `org.jetbrains.kotlin.android` 插件，Compose 编译器插件仍要保留。
   升级任意一项都要先跑通 `:core:test`、`:app:lintDebug`、`:app:assembleDebug` 并在真机验证。
+- Kotlin / Gradle KTS 缩进使用 **tab**（`.editorconfig` 的 `[*.{kt,kts}]`），提交前不要用 IDE 的“重排为空格”。
 - 不要在某个模块里漏挂 `org.jetbrains.kotlin.plugin.compose`：Glance 模块自己写 `@Composable`，
   缺少 Compose 编译器插件会报 `Couldn't inline method call: CompositionLocal.get current`。
 - Kotlin + Jetpack **Glance**（`androidx.glance:glance-appwidget`），不使用 Compose UI 写小组件，也不使用 WebView 截图方案。

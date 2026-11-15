@@ -10,8 +10,8 @@ import java.time.temporal.ChronoUnit
  * 湖大的一周从周日开始，因此 `startDate` 本身就是第一周的周日。
  */
 fun weekOf(startDate: LocalDate, date: LocalDate): Int {
-    val days = ChronoUnit.DAYS.between(startDate, date)
-    return Math.floorDiv(days, 7L).toInt() + 1
+	val days = ChronoUnit.DAYS.between(startDate, date)
+	return Math.floorDiv(days, 7L).toInt() + 1
 }
 
 /** 教学周是否可信（用于决定小组件是否显示「第 N 周」）。 */

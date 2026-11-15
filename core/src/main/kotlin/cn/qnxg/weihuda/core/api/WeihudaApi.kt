@@ -17,8 +17,8 @@ import kotlinx.serialization.json.Json
 const val DEFAULT_BASE_URL: String = "https://microlife.hnu.edu.cn/api/weihuda"
 
 class ApiException(
-    val code: Int,
-    override val message: String,
+	val code: Int,
+	override val message: String,
 ) : Exception(message)
 
 /**
@@ -27,61 +27,61 @@ class ApiException(
  * 鉴权使用裸 JWT（后端直接读取 `Authorization` 头，不加 `Bearer` 前缀）。
  */
 class WeihudaApi @JvmOverloads constructor(
-    baseUrl: String = DEFAULT_BASE_URL,
-    @PublishedApi internal val http: HttpClient = defaultHttpClient(),
+	baseUrl: String = DEFAULT_BASE_URL,
+	@PublishedApi internal val http: HttpClient = defaultHttpClient(),
 ) {
-    @PublishedApi
-    internal val base: String = baseUrl.trimEnd('/')
+	@PublishedApi
+	internal val base: String = baseUrl.trimEnd('/')
 
-    suspend fun ping(): String = fetch("$base/ping", token = null)
+	suspend fun ping(): String = fetch("$base/ping", token = null)
 
-    suspend fun semester(): SemesterInfo = fetch("$base/info/smester", token = null)
+	suspend fun semester(): SemesterInfo = fetch("$base/info/smester", token = null)
 
-    suspend fun classTable(xn: Int, xq: Int, token: String): List<CourseItem> =
-        fetch("$base/hdjw/class-table?xn=$xn&xq=$xq", token)
+	suspend fun classTable(xn: Int, xq: Int, token: String): List<CourseItem> =
+		fetch("$base/hdjw/class-table?xn=$xn&xq=$xq", token)
 
-    suspend fun userInfo(token: String): UserInfo = fetch("$base/info/user", token)
+	suspend fun userInfo(token: String): UserInfo = fetch("$base/info/user", token)
 
-    fun close() {
-        http.close()
-    }
+	fun close() {
+		http.close()
+	}
 
-    @PublishedApi
-    internal suspend inline fun <reified T> fetch(url: String, token: String?): T {
-        val response = http.get(url) {
-            token?.takeIf { it.isNotBlank() }?.let { header(HttpHeaders.Authorization, it) }
-        }
-        val text = response.bodyAsText()
-        if (response.status.value !in 200..299) {
-            throw ApiException(response.status.value, "接口返回 HTTP ${response.status.value}")
-        }
-        val envelope = runCatching {
-            json.decodeFromString<ApiEnvelope<T>>(text)
-        }.getOrElse {
-            throw ApiException(-1, "无法解析接口响应")
-        }
-        val data = envelope.data
-        if (envelope.code != 200 || data == null) {
-            throw ApiException(envelope.code, envelope.msg?.takeIf { it.isNotBlank() } ?: "接口返回异常")
-        }
-        return data
-    }
+	@PublishedApi
+	internal suspend inline fun <reified T> fetch(url: String, token: String?): T {
+		val response = http.get(url) {
+			token?.takeIf { it.isNotBlank() }?.let { header(HttpHeaders.Authorization, it) }
+		}
+		val text = response.bodyAsText()
+		if (response.status.value !in 200..299) {
+			throw ApiException(response.status.value, "接口返回 HTTP ${response.status.value}")
+		}
+		val envelope = runCatching {
+			json.decodeFromString<ApiEnvelope<T>>(text)
+		}.getOrElse {
+			throw ApiException(-1, "无法解析接口响应")
+		}
+		val data = envelope.data
+		if (envelope.code != 200 || data == null) {
+			throw ApiException(envelope.code, envelope.msg?.takeIf { it.isNotBlank() } ?: "接口返回异常")
+		}
+		return data
+	}
 
-    companion object {
-        @PublishedApi
-        internal val json: Json = Json {
-            ignoreUnknownKeys = true
-            coerceInputValues = true
-            explicitNulls = false
-        }
+	companion object {
+		@PublishedApi
+		internal val json: Json = Json {
+			ignoreUnknownKeys = true
+			coerceInputValues = true
+			explicitNulls = false
+		}
 
-        fun defaultHttpClient(): HttpClient = HttpClient(Android) {
-            expectSuccess = false
-            install(HttpTimeout) {
-                connectTimeoutMillis = 8_000
-                requestTimeoutMillis = 15_000
-                socketTimeoutMillis = 15_000
-            }
-        }
-    }
+		fun defaultHttpClient(): HttpClient = HttpClient(Android) {
+			expectSuccess = false
+			install(HttpTimeout) {
+				connectTimeoutMillis = 8_000
+				requestTimeoutMillis = 15_000
+				socketTimeoutMillis = 15_000
+			}
+		}
+	}
 }
