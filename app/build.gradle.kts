@@ -9,9 +9,10 @@ plugins {
 android {
     namespace = "cn.qnxg.weihuda.lazer"
     compileSdk = libs.versions.androidCompileSdk.get().toInt()
-    // 本机只装了 android-36.1（Android 16 QPR2），AGP 8.13 支持次版本 SDK
-    compileSdkMinor = 1
-    buildToolsVersion = "36.1.0"
+    // 只装了 android-36.1 的环境（如 Android 16 QPR2 预览）可在本地 gradle.properties 里
+    // 设置 compileSdkMinor=1、buildToolsVersion=36.1.0，仓库默认按标准 android-36 构建。
+    (findProperty("compileSdkMinor") as String?)?.let { compileSdkMinor = it.toInt() }
+    (findProperty("buildToolsVersion") as String?)?.let { buildToolsVersion = it }
 
     defaultConfig {
         applicationId = "cn.qnxg.weihuda.lazer"
