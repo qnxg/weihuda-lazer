@@ -1,0 +1,46 @@
+name: Check license headers
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - ".github/workflows/license-header.yml"
+      - "config/checkstyle/license-header.txt"
+      - "build.gradle.kts"
+      - "gradle/libs.versions.toml"
+      - "**/*.kt"
+      - "**/*.kts"
+  pull_request:
+    paths:
+      - ".github/workflows/license-header.yml"
+      - "config/checkstyle/license-header.txt"
+      - "build.gradle.kts"
+      - "gradle/libs.versions.toml"
+      - "**/*.kt"
+      - "**/*.kts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spotless:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # 只跑文件头检查，不需要 Android SDK：AGP 的 SDK 解析是惰性的，spotless 任务用不到它。
+      # `spotlessCheck` 只报告，本地用 `./gradlew spotlessApply` 修；文件头的文案在
+      # config/checkstyle/license-header.txt，规则挂在根 build.gradle.kts 的 spotless 块里。
+      - name: Check SPDX headers
+        run: ./gradlew spotlessCheck --console=plain

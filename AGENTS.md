@@ -41,6 +41,10 @@
 - 令牌用 Android Keystore（AES-256-GCM）加密后存 SharedPreferences，不使用已废弃的
   `androidx.security:security-crypto`；应用保持 `allowBackup="false"`。
 - `core` 与 `data:remote` 保持纯 JVM，保证可在 JVM 上单测，并为 KMP 迁移留出空间。
+- 许可为 `MIT OR Apache-2.0` 双许可；SPDX 文件头由根 `build.gradle.kts` 的
+  Spotless 统一写入，文案在 `config/checkstyle/license-header.txt`。补头用
+  `./gradlew spotlessApply`，不要手工改单个文件的头，也不要再引入 hawkeye
+  之类的第二套头工具——两套识别规则会互相覆盖。
 
 ## 数据与接口
 
@@ -75,7 +79,7 @@
 - 仅保留开发所必需的信息。切勿在注释中记录变更历史（这些信息应由提交记录或 PR 负责）、保留被注释掉的代码、在注释中署名，或仅仅因为某个元素存在就为其添加注释。
 - 仅需为公开的 crate
   API 编写文档；无需为每个私有辅助函数都添加说明——一个命名得当的短函数本身就已足够说明问题。
-- 文件头（如版权声明或 SPDX 标识）属于例外情况，这类注释并非针对代码逻辑本身。
+- 文件头（如版权声明或 SPDX 标识）属于例外情况，这类注释并非针对代码逻辑本身；这类注释不手写，由 Spotless 生成，见「技术约束」。
 
 ## 质量门槛
 
@@ -84,6 +88,7 @@
 - 提交前运行：
 
   ```bash
+  ./gradlew spotlessCheck
   ./gradlew :core:test :data:remote:test :data:local:testDebugUnitTest :widget:testDebugUnitTest
   ./gradlew :app:lintDebug :app:assembleDebug
   ```

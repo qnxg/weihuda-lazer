@@ -26,3 +26,12 @@
 - [ARCHITECTURE.md](./ARCHITECTURE.md)：分层、刷新与登录链路、快照与渲染的边界
 - [docs/roadmap.md](./docs/roadmap.md)：已完成与下一步
 - [CONTRIBUTING.md](./CONTRIBUTING.md)：真机验证清单
+
+## 许可
+
+以 **MIT 或 Apache-2.0** 双许可发布，任选其一：
+
+- [LICENSE-MIT](./LICENSE-MIT)
+- [LICENSE-APACHE](./LICENSE-APACHE)
+
+除你明确声明的部分外，你提交的贡献按惯例视为同时采用上述两种许可。

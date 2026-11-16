@@ -1,3 +1,6 @@
+// weihuda!lazer
+// Copyright 2026 weihuda!lazer contributors. All rights reserved.
+// SPDX-License-Identifier: MIT OR Apache-2.0
 package cn.qnxg.weihuda.core.usecase
 
 import cn.qnxg.weihuda.core.entity.CourseSession

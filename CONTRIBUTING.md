@@ -48,12 +48,26 @@ cd weihuda-lazer
 在提交拉取请求之前，请确保代码已格式化、通过 lint 检查，并且文档构建干净：
 
 ```bash
+./gradlew spotlessCheck
 ./gradlew :core:test :data:remote:test :data:local:testDebugUnitTest :widget:testDebugUnitTest
 ./gradlew :app:lintDebug :app:assembleDebug
 ```
 
 `.editorconfig` 已声明 Kotlin / KTS 用 **tab**
 缩进，以便不同的开发者能选择他们喜欢的缩进长度，请注意编辑器的格式化设置。
+
+## 文件头
+
+每个 Kotlin 源文件与 Gradle 脚本都带三行文件头（项目名、版权、SPDX 标识）。文案只在
+[`config/checkstyle/license-header.txt`](./config/checkstyle/license-header.txt)
+里，由根 `build.gradle.kts` 的 Spotless 配置统一写入：
+
+```bash
+./gradlew spotlessApply   # 新建文件后补齐，或改完文案后重写全部文件头
+./gradlew spotlessCheck   # CI 跑的检查，只报告不修改
+```
+
+不要手工改单个文件的文件头，也不要再引入第二个文件头工具（例如 hawkeye）：两套识别规则会互相覆盖，最后变成反复改头。
 
 ## 调试期注入令牌
 
