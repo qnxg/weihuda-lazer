@@ -1,4 +1,4 @@
-# Android 小组件开发约束
+# weihuda!lazer - Agent Guide
 
 开发前先阅读 [ARCHITECTURE.md](./ARCHITECTURE.md)，以便了解项目架构 ，开发时需要遵循它的规划。
 
