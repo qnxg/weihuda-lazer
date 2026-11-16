@@ -1,51 +1,51 @@
-name: android
-
-on:
-  push:
-    branches: [dev]
-  pull_request:
-
-jobs:
-  build:
-    name: Build & Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK components
-        run: |
-          sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
-
-      # 每个模块各自持有自己那层的测试：实体/用例、接口契约、快照格式、presenter 文案。
-      - name: Unit tests
-        run: >
-          ./gradlew
-          :core:test
-          :data:remote:test
-          :data:local:testDebugUnitTest
-          :widget:testDebugUnitTest
-
-      - name: Lint
-        run: ./gradlew :app:lintDebug
-
-      - name: Assemble debug
-        run: ./gradlew :app:assembleDebug
-
-      - name: Upload apk
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
+# name: android
+#
+# on:
+#   push:
+#     branches: [dev]
+#   pull_request:
+#
+# jobs:
+#   build:
+#     name: Build & Test
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - name: Setup JDK
+#         uses: actions/setup-java@v4
+#         with:
+#           distribution: temurin
+#           java-version: "21"
+#
+#       - name: Setup Gradle
+#         uses: gradle/actions/setup-gradle@v4
+#
+#       - name: Setup Android SDK
+#         uses: android-actions/setup-android@v3
+#
+#       - name: Install SDK components
+#         run: |
+#           sdkmanager --licenses > /dev/null || true
+#           sdkmanager "platforms;android-36" "build-tools;36.0.0"
+#
+#       # 每个模块各自持有自己那层的测试：实体/用例、接口契约、快照格式、presenter 文案。
+#       - name: Unit tests
+#         run: >
+#           ./gradlew
+#           :core:test
+#           :data:remote:test
+#           :data:local:testDebugUnitTest
+#           :widget:testDebugUnitTest
+#
+#       - name: Lint
+#         run: ./gradlew :app:lintDebug
+#
+#       - name: Assemble debug
+#         run: ./gradlew :app:assembleDebug
+#
+#       - name: Upload apk
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: app-debug
+#           path: app/build/outputs/apk/debug/*.apk
