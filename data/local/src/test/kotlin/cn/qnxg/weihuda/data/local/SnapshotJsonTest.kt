@@ -16,7 +16,9 @@ class SnapshotJsonTest {
 	private val snapshot = TodayCourses(
 		date = LocalDate.of(2026, 11, 16),
 		week = 10,
-		source = TodayCourses.Source.REMOTE,		studentName = "李同学",
+		state = TodayCourses.State.LOADED,
+		studentName = "李同学",
+		studentCollege = "电气与信息工程学院",
 		sessions = listOf(
 			CourseSession(
 				name = "操作系统",

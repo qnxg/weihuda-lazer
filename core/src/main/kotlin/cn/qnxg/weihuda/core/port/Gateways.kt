@@ -35,3 +35,13 @@ interface CourseGateway {
 interface StudentGateway {
 	suspend fun current(credentials: Credentials): cn.qnxg.weihuda.core.entity.Student
 }
+
+/**
+ * 登录换令牌。
+ *
+ * 后端的登录入口只认微信 jscode，Android 拿不到 code，所以当前实现走的是后端的调试
+ * 通道（`code=testing`）。换实现（比如后端补上 `POST /auth/login`）不需要动界面与用例。
+ */
+interface AuthGateway {
+	suspend fun signIn(stuId: String, password: String): Credentials
+}

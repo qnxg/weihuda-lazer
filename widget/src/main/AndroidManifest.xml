@@ -13,6 +13,10 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/course_widget_info" />
         </receiver>
+
+        <receiver
+            android:name="cn.qnxg.weihuda.widget.PinResultReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

@@ -13,20 +13,22 @@ import java.time.LocalTime
  *
  * [version] 让格式可以在不改 port 的前提下演进：读到不认识的版本就当没有快照，
  * 桌面退回「正在获取课表」，而不是崩溃或显示错位的数据。
+ * 版本 2 把「演示/实时」的来源字段换成了三态 [state]，旧快照直接作废。
  */
 @Serializable
 internal data class SnapshotDto(
 	val version: Int = VERSION,
 	val date: String,
 	val week: Int,
-	val source: String,
+	val state: String,
 	val studentName: String? = null,
+	val studentCollege: String? = null,
 	val failure: String? = null,
 	val refreshedAt: Long,
 	val sessions: List<SessionDto> = emptyList(),
 ) {
 	companion object {
-		const val VERSION: Int = 1
+		const val VERSION: Int = 2
 	}
 }
 
@@ -59,8 +61,9 @@ internal object SnapshotJson {
 		SnapshotDto(
 			date = snapshot.date.toString(),
 			week = snapshot.week,
-			source = snapshot.source.name,
+			state = snapshot.state.name,
 			studentName = snapshot.studentName,
+			studentCollege = snapshot.studentCollege,
 			failure = snapshot.failure,
 			refreshedAt = snapshot.refreshedAt.toEpochMilli(),
 			sessions = snapshot.sessions.map { session ->
@@ -86,9 +89,10 @@ internal object SnapshotJson {
 		return TodayCourses(
 			date = date,
 			week = dto.week,
-			source = runCatching { TodayCourses.Source.valueOf(dto.source) }
-				.getOrDefault(TodayCourses.Source.REMOTE),
+			state = runCatching { TodayCourses.State.valueOf(dto.state) }
+				.getOrDefault(TodayCourses.State.SIGNED_OUT),
 			studentName = dto.studentName,
+			studentCollege = dto.studentCollege,
 			sessions = dto.sessions.mapNotNull { it.toEntity() },
 			failure = dto.failure,
 			refreshedAt = Instant.ofEpochMilli(dto.refreshedAt),

@@ -1,7 +1,5 @@
 package cn.qnxg.weihuda.core
 
-import cn.qnxg.weihuda.core.demo.DemoTimetable
-import cn.qnxg.weihuda.core.entity.CampusClock
 import cn.qnxg.weihuda.core.entity.Course
 import cn.qnxg.weihuda.core.entity.Credentials
 import cn.qnxg.weihuda.core.entity.Semester
@@ -47,11 +45,11 @@ class RefreshTodayCoursesTest {
 		period = 1,
 	)
 
-	private val settings = FakeSettingsStore(Settings(baseUrl = "https://example.invalid", demoMode = true))
+	private val settings = FakeSettingsStore(Settings(baseUrl = "https://example.invalid"))
 	private val snapshots = FakeSnapshotStore()
 	private val semesters = FakeSemesterGateway(Semester(year = 2026, term = 1, startDate = monday.minusWeeks(9)))
 	private val courses = FakeCourseGateway(listOf(mondayCourse))
-	private val students = FakeStudentGateway(Student(name = "李同学"))
+	private val students = FakeStudentGateway(Student(name = "李同学", college = "电气与信息工程学院"))
 
 	private fun interactor() = RefreshTodayCoursesInteractor(
 		settings = settings,
@@ -62,106 +60,111 @@ class RefreshTodayCoursesTest {
 		clock = clock,
 	)
 
-	@Test
-	fun `demo mode never touches the network and still writes a snapshot`() {
-		runBlocking {
-				val result = interactor().refresh()
-
-				assertEquals(TodayCourses.Source.DEMO, result.source)
-				assertTrue(result.sessions.isNotEmpty())
-				assertEquals(monday, result.date)
-				assertEquals(0, semesters.calls)
-				assertEquals(0, courses.calls)
-				assertEquals(result, snapshots.written)
-		}
+	private fun signIn(token: String = "jwt") {
+		settings.current = settings.current.copy(credentials = Credentials(token))
 	}
 
 	@Test
-	fun `missing credentials fall back to demo even when demo mode is off`() {
-		runBlocking {
-				settings.current = Settings(demoMode = false, credentials = Credentials("  "))
+	fun `no credentials means signed out and no network calls`() = runBlocking {
+		val result = interactor().refresh()
 
-				val result = interactor().refresh()
-
-				assertEquals(TodayCourses.Source.DEMO, result.source)
-				assertEquals(0, courses.calls)
-		}
+		assertEquals(TodayCourses.State.SIGNED_OUT, result.state)
+		assertTrue(result.sessions.isEmpty())
+		assertNull(result.studentName)
+		assertEquals(monday, result.date)
+		assertEquals(0, semesters.calls)
+		assertEquals(0, courses.calls)
+		assertEquals(result, snapshots.written)
 	}
 
 	@Test
-	fun `remote refresh merges sessions and records the semester week`() {
-		runBlocking {
-				settings.current = Settings(demoMode = false, credentials = Credentials("jwt"))
-				courses.items = listOf(mondayCourse, mondayCourse.copy(period = 2))
+	fun `blank token is treated as signed out`() = runBlocking {
+		signIn(token = "   ")
 
-				val result = interactor().refresh()
+		val result = interactor().refresh()
 
-				assertEquals(TodayCourses.Source.REMOTE, result.source)
-				assertEquals(10, result.week)
-				assertEquals("李同学", result.studentName)
-				assertEquals(1, result.sessions.size)
-				assertEquals(2, result.sessions.single().endPeriod)
-				assertNull(result.failure)
-		}
+		assertEquals(TodayCourses.State.SIGNED_OUT, result.state)
+		assertEquals(0, courses.calls)
 	}
 
 	@Test
-	fun `semester failure keeps the earlier snapshot of the same day`() {
-		runBlocking {
-				val first = interactor().refresh()
-				settings.current = Settings(demoMode = false, credentials = Credentials("jwt"))
-				semesters.failure = GatewayException.network("网络请求失败")
+	fun `signing out drops the previous snapshot`() = runBlocking {
+		signIn()
+		val signedIn = interactor().refresh()
+		assertEquals(TodayCourses.State.LOADED, signedIn.state)
 
-				val failed = interactor().refresh()
+		settings.current = settings.current.copy(credentials = Credentials(""))
+		val signedOut = interactor().refresh()
 
-				assertEquals("网络请求失败", failed.failure)
-				assertEquals(first.sessions, failed.sessions)
-				assertEquals("演示同学", failed.studentName)
-		}
+		assertEquals(TodayCourses.State.SIGNED_OUT, signedOut.state)
+		assertTrue(signedOut.sessions.isEmpty())
+		assertNull(signedOut.studentName)
 	}
 
 	@Test
-	fun `timetable failure drops the previous day sessions`() {
-		runBlocking {
-				snapshots.stored = TodayCourses(
-					date = monday.minusDays(1),
-					week = 9,
-					source = TodayCourses.Source.REMOTE,
-					studentName = "李同学",
-					sessions = emptyList(),
-					failure = null,
-					refreshedAt = Instant.EPOCH,
-				)
-				settings.current = Settings(demoMode = false, credentials = Credentials("jwt"))
-				courses.failure = GatewayException(code = 401, message = "令牌已过期")
+	fun `remote refresh merges sessions and records the semester week`() = runBlocking {
+		signIn()
+		courses.items = listOf(mondayCourse, mondayCourse.copy(period = 2))
 
-				val failed = interactor().refresh()
+		val result = interactor().refresh()
 
-				assertEquals("令牌已过期", failed.failure)
-				assertTrue(failed.sessions.isEmpty())
-				assertEquals(10, failed.week)
-		}
+		assertEquals(TodayCourses.State.LOADED, result.state)
+		assertEquals(10, result.week)
+		assertEquals("李同学", result.studentName)
+		assertEquals("电气与信息工程学院", result.studentCollege)
+		assertEquals(1, result.sessions.size)
+		assertEquals(2, result.sessions.single().endPeriod)
+		assertNull(result.failure)
 	}
 
 	@Test
-	fun `student failure does not fail the refresh`() {
-		runBlocking {
-				settings.current = Settings(demoMode = false, credentials = Credentials("jwt"))
-				students.failure = GatewayException.network("用户信息超时")
+	fun `semester failure keeps the earlier snapshot of the same day`() = runBlocking {
+		signIn()
+		val first = interactor().refresh()
+		semesters.failure = GatewayException.network("网络请求失败")
 
-				val result = interactor().refresh()
+		val failed = interactor().refresh()
 
-				assertNull(result.failure)
-				assertNull(result.studentName)
-				assertEquals(1, result.sessions.size)
-		}
+		assertEquals("网络请求失败", failed.failure)
+		assertEquals(TodayCourses.State.LOADED, failed.state)
+		assertEquals(first.sessions, failed.sessions)
+		assertEquals("李同学", failed.studentName)
 	}
 
 	@Test
-	fun `demo timetable is anchored so today is week nine`() {
-		runBlocking {
-				assertEquals(9, cn.qnxg.weihuda.core.entity.weekOf(DemoTimetable.semesterStart(monday), monday))
-		}
+	fun `timetable failure drops the previous day sessions`() = runBlocking {
+		snapshots.stored = TodayCourses(
+			date = monday.minusDays(1),
+			week = 9,
+			state = TodayCourses.State.LOADED,
+			studentName = "李同学",
+			studentCollege = "电气与信息工程学院",
+			sessions = emptyList(),
+			failure = null,
+			refreshedAt = Instant.EPOCH,
+		)
+		signIn()
+		courses.failure = GatewayException(code = 401, message = "令牌已过期")
+
+		val failed = interactor().refresh()
+
+		assertEquals("令牌已过期", failed.failure)
+		assertEquals(TodayCourses.State.FAILED, failed.state)
+		assertTrue(failed.sessions.isEmpty())
+		assertEquals(10, failed.week)
+	}
+
+	@Test
+	fun `student failure does not fail the refresh`() = runBlocking {
+		signIn()
+		students.failure = GatewayException.network("用户信息超时")
+
+		val result = interactor().refresh()
+
+		assertNull(result.failure)
+		assertNull(result.studentName)
+		assertNull(result.studentCollege)
+		assertEquals(1, result.sessions.size)
 	}
 
 	private class FakeSettingsStore(var current: Settings) : SettingsStore {

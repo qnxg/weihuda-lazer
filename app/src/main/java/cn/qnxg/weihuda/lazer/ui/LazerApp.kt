@@ -1,60 +1,108 @@
 package cn.qnxg.weihuda.lazer.ui
 
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import cn.qnxg.weihuda.lazer.ui.account.AccountScreen
-import cn.qnxg.weihuda.lazer.ui.account.withToken
+import androidx.compose.ui.platform.LocalContext
 import cn.qnxg.weihuda.lazer.ui.course.CourseSettingsScreen
-import cn.qnxg.weihuda.lazer.ui.library.WidgetLibraryScreen
+import cn.qnxg.weihuda.lazer.ui.home.HomeScreen
+import cn.qnxg.weihuda.lazer.ui.login.LoginScreen
+import cn.qnxg.weihuda.lazer.ui.settings.SettingsScreen
 import cn.qnxg.weihuda.widget.CourseWidgetComponent
 
 /**
- * 应用的最外层：一个很浅的导航栈（库 → 某个卡片的设置 → 账号）。
+ * 应用的最外层：一个很浅的导航栈（首页 → 某个卡片的设置 / 登录 → 应用设置）。
  *
- * 只有三屏、且没有深链接与多任务栈，用 navigation-compose 换来的只是额外依赖；
+ * 只有四屏、且没有深链接与多任务栈，用 navigation-compose 换来的只是额外依赖；
  * 加卡片时在这里多一个分支即可，真要复杂起来再换库也不会影响下层。
  */
 @Composable
-fun LazerApp(component: CourseWidgetComponent) {
+fun LazerApp(
+	component: CourseWidgetComponent,
+	debugToken: String? = null,
+	fallbackToken: String? = null,
+	onFallbackTokenApplied: () -> Unit = {},
+) {
+	val context = LocalContext.current
 	val scope = rememberCoroutineScope()
-	val state = remember(component, scope) { AppState(component, scope) }
+	val miuiHome = remember(context) { usesMiuiHome(context) }
+	val state = remember(component, scope, miuiHome) { AppState(component, scope, miuiHome) }
 
-	LaunchedEffect(state) { state.load() }
+	// 注入用的令牌只在启动那一次生效：重组不该把用户后来手动登录的账号再顶掉。
+	LaunchedEffect(state) {
+		state.load(
+			debugToken = debugToken,
+			fallbackToken = fallbackToken,
+			onFallbackApplied = onFallbackTokenApplied,
+		)
+	}
 
-	BackHandler(enabled = state.screen != Screen.Library) { state.back() }
+	BackHandler(enabled = state.screen != Screen.Home) { state.back() }
 
 	when (state.screen) {
-		Screen.Library -> WidgetLibraryScreen(
+		Screen.Home -> HomeScreen(
 			settings = state.settings,
 			snapshot = state.snapshot,
 			notice = state.notice,
+			onOpenLogin = { state.open(Screen.Login) },
 			onOpenCourseSettings = { state.open(Screen.CourseSettings) },
-			onOpenAccount = { state.open(Screen.Account) },
+			onOpenSettings = { state.open(Screen.Settings) },
+		)
+
+		Screen.Login -> LoginScreen(
+			submitting = state.signingIn,
+			error = state.loginError,
+			onBack = { state.back() },
+			onForgotPassword = { context.openUrl(state.passwordResetUrl) },
+			onSubmit = state::signIn,
 		)
 
 		Screen.CourseSettings -> CourseSettingsScreen(
-			settings = state.settings,
 			snapshot = state.snapshot,
 			notice = state.notice,
 			busy = state.busy,
-			defaultBaseUrl = state.defaultBaseUrl,
-			onSaveAndRefresh = state::saveAndRefresh,
+			pinBlocked = state.pinBlocked,
+			canOpenAppSettings = miuiHome,
 			onPin = state::pinToHomeScreen,
-			onOpenAccount = { state.open(Screen.Account) },
+			onRefresh = state::refresh,
+			onOpenAppSettings = { context.startActivity(appDetailsIntent(context)) },
 		)
 
-		Screen.Account -> AccountScreen(
+		Screen.Settings -> SettingsScreen(
 			settings = state.settings,
 			notice = state.notice,
 			busy = state.busy,
-			onSaveToken = { token ->
-				state.settings?.let { state.saveAndRefresh(it.withToken(token)) }
-			},
+			defaultBaseUrl = state.defaultBaseUrl,
+			onSave = state::saveAndRefresh,
+			onOpenLogin = { state.open(Screen.Login) },
 			onSignOut = state::signOut,
-			onRefresh = state::refresh,
 		)
 	}
+}
+
+private const val MIUI_HOME = "com.miui.home"
+
+/** MIUI 桌面把一键添加挡在「桌面快捷方式」权限后面，只有它能给出这个提示。 */
+private fun usesMiuiHome(context: Context): Boolean {
+	val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+	val resolved = context.packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)
+	return resolved?.activityInfo?.packageName == MIUI_HOME
+}
+
+private fun appDetailsIntent(context: Context): Intent =
+	Intent(
+		Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+		Uri.fromParts("package", context.packageName, null),
+	)
+
+/** 没有匹配的浏览器时静默失败：这只是个辅助入口，不值得单独报错。 */
+private fun Context.openUrl(url: String) {
+	runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
 }

@@ -12,7 +12,6 @@ captures/
 .cxx/
 
 # IDE
-.idea/
 *.iml
 .DS_Store
 

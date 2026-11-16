@@ -24,13 +24,14 @@ class CourseWidgetPresenterTest {
 	private fun snapshot(
 		sessions: List<CourseSession> = listOf(morning, afternoon),
 		failure: String? = null,
-		source: TodayCourses.Source = TodayCourses.Source.REMOTE,
+		state: TodayCourses.State = TodayCourses.State.LOADED,
 		week: Int = 10,
 	) = TodayCourses(
 		date = monday,
 		week = week,
-		source = source,
+		state = state,
 		studentName = "李同学",
+		studentCollege = "电气与信息工程学院",
 		sessions = sessions,
 		failure = failure,
 		refreshedAt = Instant.parse("2026-11-16T00:30:00Z"),
@@ -85,7 +86,7 @@ class CourseWidgetPresenterTest {
 	@Test
 	fun `failure on an empty day becomes the headline`() {
 		val view = CourseWidgetPresenter.present(
-			snapshot(sessions = emptyList(), failure = "网络请求失败"),
+			snapshot(sessions = emptyList(), failure = "网络请求失败", state = TodayCourses.State.FAILED),
 			LocalTime.of(9, 0),
 		)
 
@@ -113,15 +114,38 @@ class CourseWidgetPresenterTest {
 	}
 
 	@Test
-	fun `source label distinguishes demo data from live data`() {
-		val demo = CourseWidgetPresenter.present(
-			snapshot(source = TodayCourses.Source.DEMO),
+	fun `a failed refresh is visible in the footer even when rows are shown`() {
+		val view = CourseWidgetPresenter.present(snapshot(failure = "令牌已过期"), LocalTime.of(9, 0))
+
+		assertTrue(view.footerIsError)
+		assertEquals("刷新失败 · 令牌已过期", view.footerLabel)
+	}
+
+	@Test
+	fun `a healthy snapshot keeps the source in the footer`() {
+		val view = CourseWidgetPresenter.present(snapshot(), LocalTime.of(9, 0))
+
+		assertEquals(false, view.footerIsError)
+		assertTrue(view.footerLabel.startsWith("实时数据"))
+	}
+
+	@Test
+	fun `signed out snapshot asks the user to sign in`() {
+		val view = CourseWidgetPresenter.present(
+			snapshot(sessions = emptyList(), state = TodayCourses.State.SIGNED_OUT),
 			LocalTime.of(9, 0),
 		)
-		val live = CourseWidgetPresenter.present(snapshot(), LocalTime.of(9, 0))
 
-		assertTrue(demo.sourceLabel.startsWith("演示数据"))
-		assertTrue(live.sourceLabel.startsWith("实时数据"))
+		assertEquals("未登录", view.emptyTitle)
+		assertEquals("登录校园账号以使用此组件", view.emptyDetail)
+		assertEquals("微生活课表", view.weekLabel)
+		assertTrue(view.sourceLabel.startsWith("未登录"))
+		assertNull(view.failureLabel)
+	}
+
+	@Test
+	fun `live snapshot keeps the source in the footer`() {
+		assertTrue(CourseWidgetPresenter.present(snapshot(), LocalTime.of(9, 0)).sourceLabel.startsWith("实时数据"))
 	}
 
 	private val morning = CourseSession(

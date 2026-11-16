@@ -21,6 +21,16 @@ data class CourseWidgetView(
 	val sourceLabel: String,
 ) {
 	val hasRows: Boolean get() = rows.isNotEmpty()
+
+	/**
+	 * 页脚那行字：刷新失败时用失败文案顶掉数据来源。
+	 *
+	 * 4×2 没有多余的行可以放错误，但页脚本来就在，所以失败在最小尺寸上也能被看见——
+	 * 否则用户点了「刷新」只会看到时间戳没变。
+	 */
+	val footerLabel: String get() = failureLabel?.replace("上次刷新失败：", "刷新失败 · ") ?: sourceLabel
+
+	val footerIsError: Boolean get() = failureLabel != null
 }
 
 /** 一节课在 4×2 / 4×4 里的一行。 */

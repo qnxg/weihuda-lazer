@@ -15,7 +15,7 @@ import javax.crypto.spec.GCMParameterSpec
  * 密钥留在硬件支持的 Keystore 里，`allowBackup=false` 保证备份不会被带到别的设备上；
  * 不使用已废弃的 `androidx.security:security-crypto`，直接走平台 API。
  *
- * 加解密失败一律返回空串：令牌坏了等于没登录，用例会退回演示数据，不会崩在启动路径上。
+ * 加解密失败一律返回空串：令牌坏了等于没登录，界面退回「未登录」，不会崩在启动路径上。
  */
 internal object KeystoreTokenCipher {
 	private const val ALIAS = "weihuda_lazer_token"

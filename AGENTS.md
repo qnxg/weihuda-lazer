@@ -8,14 +8,15 @@
 
 依赖方向：`app → widget → data:* → core`。
 
-- `core` 只放实体、端口、用例和演示数据。**不允许** `import android.*`、
+- `core` 只放实体、端口和用例。**不允许** `import android.*`、
   `io.ktor.*`、`kotlinx.serialization.*`；`core` 的依赖表里也不该出现它们。
 - 任何外部能力都从 `core/port/` 出去的接口进来；实现放在 `data:remote`（网络）或
   `data:local`（磁盘、Keystore）。
 - 后端字段名只出现在 `data:remote/dto/` 与 `Mapping.kt`；`core.entity` 用领域词汇。
 - `app` 不 import `io.ktor`、`androidx.glance`、`data.*`；它只认 `CourseWidgetComponent` 与
   `widget.presentation.CourseWidget*`。
-- `widget` 除门面与 presenter 之外一律 `internal`；不要把 Glance 类型泄漏给 `app`。
+- `widget` 除门面与 presenter 之外一律 `internal`（Android 按类名反射创建的 receiver / worker 除外，见
+  ARCHITECTURE.md）；不要把 Glance 类型泄漏给 `app`。
 
 ## 技术约束
 
@@ -51,6 +52,8 @@
   是小节次 1…12；连续小节在展示前合并为一节课，课程名、课程代码、自定义 ID、教师、地点、班级任一不同都必须拆开。
 - 周次计算：`floor((今天 - 学期开始日期) / 7) + 1`，一周从周日开始。
 - 状态阈值：开课前 20 分钟内为「即将开始」，开始到结束为「上课中」，之后为「已结束」；状态在渲染时用当前时刻计算，**不要**写进快照。
+- 应用内**不内置演示数据**：未登录就是空态，用 `TodayCourses.State.SIGNED_OUT` 表达，界面给登录引导；
+  不要为了「装好即见效果」再塞一份假课表，假课会被当成当天安排。
 
 ## 视觉
 

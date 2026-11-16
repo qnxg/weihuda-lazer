@@ -33,13 +33,8 @@ import cn.qnxg.weihuda.core.entity.CourseStatus
 import cn.qnxg.weihuda.widget.presentation.CourseWidgetView
 import cn.qnxg.weihuda.widget.presentation.FocusCard
 import cn.qnxg.weihuda.widget.presentation.SessionRow
-
-/** 三种信息密度，分别对应 2×2 / 4×2 以上 / 4×4。 */
-internal enum class WidgetMode {
-	COMPACT,
-	WIDE,
-	LARGE,
-}
+import cn.qnxg.weihuda.widget.presentation.WidgetDensity
+import cn.qnxg.weihuda.widget.presentation.WidgetLayout
 
 internal val COMPACT_SIZE = DpSize(110.dp, 110.dp)
 
@@ -60,21 +55,13 @@ internal val LARGE_SIZE = DpSize(250.dp, 250.dp)
 @Composable
 internal fun WidgetContent(context: Context, view: CourseWidgetView) {
 	val size = LocalSize.current
-	val mode = when {
-		size.width < 180.dp -> WidgetMode.COMPACT
-		size.height >= 230.dp -> WidgetMode.LARGE
-		else -> WidgetMode.WIDE
-	}
 	// 桌面单元格的实际高度和 dp 估算并不一致（各家启动器不同），按真实尺寸决定行数
-	val rows = when (mode) {
-		WidgetMode.COMPACT -> 0
-		WidgetMode.WIDE -> when {
-			size.height >= 160.dp -> 4
-			size.height >= 130.dp -> 3
-			else -> 2
-		}
-		WidgetMode.LARGE -> if (size.height >= 280.dp) 6 else 5
-	}
+	val mode = WidgetLayout.density(size.width.value.toInt(), size.height.value.toInt())
+	val rows = WidgetLayout.visibleRows(
+		heightDp = size.height.value.toInt(),
+		density = mode,
+		hasFailure = view.failureLabel != null && view.hasRows,
+	)
 	// 必须用带 Component 的显式 Intent：Glance 会给 Intent 附加 data URI，
 	// 隐式 Intent（只带 package）会因此匹配不到启动 Activity。
 	val openApp = actionStartActivity(
@@ -94,12 +81,12 @@ internal fun WidgetContent(context: Context, view: CourseWidgetView) {
 		Header(view = view, mode = mode)
 		Divider()
 		Body(view = view, mode = mode, rows = rows)
-		if (mode != WidgetMode.COMPACT) Footer(view)
+		if (mode != WidgetDensity.COMPACT) Footer(view)
 	}
 }
 
 @Composable
-private fun Header(view: CourseWidgetView, mode: WidgetMode) {
+private fun Header(view: CourseWidgetView, mode: WidgetDensity) {
 	Row(
 		modifier = GlanceModifier.fillMaxWidth(),
 		verticalAlignment = Alignment.CenterVertically,
@@ -108,17 +95,17 @@ private fun Header(view: CourseWidgetView, mode: WidgetMode) {
 			text = view.weekLabel,
 			style = TextStyle(
 				color = Palette.brand,
-				fontSize = if (mode == WidgetMode.COMPACT) 11.sp else 12.sp,
+				fontSize = if (mode == WidgetDensity.COMPACT) 11.sp else 12.sp,
 				fontWeight = FontWeight.Bold,
 			),
 			maxLines = 1,
 		)
 		Spacer(GlanceModifier.defaultWeight())
 		Text(
-			text = if (mode == WidgetMode.COMPACT) view.dayLabelShort else view.dayLabel,
+			text = if (mode == WidgetDensity.COMPACT) view.dayLabelShort else view.dayLabel,
 			style = TextStyle(
 				color = Palette.inkMuted,
-				fontSize = if (mode == WidgetMode.COMPACT) 10.sp else 11.sp,
+				fontSize = if (mode == WidgetDensity.COMPACT) 10.sp else 11.sp,
 			),
 			maxLines = 1,
 		)
@@ -137,32 +124,34 @@ private fun Divider() {
 }
 
 @Composable
-private fun ColumnScope.Body(view: CourseWidgetView, mode: WidgetMode, rows: Int) {
+private fun ColumnScope.Body(view: CourseWidgetView, mode: WidgetDensity, rows: Int) {
 	when {
 		!view.hasRows -> Hint(
 			title = view.emptyTitle.orEmpty(),
-			detail = (view.emptyDetail ?: "").clip(if (mode == WidgetMode.COMPACT) 14 else 34),
+			detail = (view.emptyDetail ?: "").clip(if (mode == WidgetDensity.COMPACT) 14 else 34),
 		)
 
 		else -> Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
 			val failure = view.failureLabel
-			if (failure != null && mode == WidgetMode.LARGE) {
+			if (failure != null && mode == WidgetDensity.LARGE) {
 				Text(
 					text = failure.clip(24),
 					style = TextStyle(color = Palette.error, fontSize = 9.sp),
 					maxLines = 1,
 				)
 			}
-			if (mode == WidgetMode.COMPACT) {
+			if (mode == WidgetDensity.COMPACT) {
 				view.focus?.let { CompactCard(it, view.focusTotalLabel) }
 			} else {
-				view.rows.take(rows).forEach { row ->
+				// 「还有 N 节」自己也要占一行，所以有剩余课程时少画一行
+				val fits = if (view.rows.size > rows) (rows - 1).coerceAtLeast(0) else rows
+				view.rows.take(fits).forEach { row ->
 					when (mode) {
-						WidgetMode.WIDE -> WideRow(row)
+						WidgetDensity.WIDE -> WideRow(row)
 						else -> LargeRow(row)
 					}
 				}
-				val hidden = view.rows.size - rows
+				val hidden = view.rows.size - fits
 				if (hidden > 0) {
 					Text(
 						text = "还有 $hidden 节",
@@ -334,8 +323,11 @@ private fun Footer(view: CourseWidgetView) {
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Text(
-			text = view.sourceLabel.clip(20),
-			style = TextStyle(color = Palette.inkMuted, fontSize = 9.sp),
+			text = view.footerLabel.clip(20),
+			style = TextStyle(
+				color = if (view.footerIsError) Palette.error else Palette.inkMuted,
+				fontSize = 9.sp,
+			),
 			maxLines = 1,
 		)
 		Spacer(GlanceModifier.defaultWeight())

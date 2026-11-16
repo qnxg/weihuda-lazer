@@ -13,24 +13,38 @@ import java.time.LocalDate
 data class TodayCourses(
 	val date: LocalDate,
 	val week: Int,
-	val source: Source,
+	val state: State,
 	val studentName: String?,
+	val studentCollege: String?,
 	val sessions: List<CourseSession>,
 	/** 最近一次刷新失败的原因；非空时 [sessions] 仍是当天上一次成功的结果。 */
 	val failure: String?,
 	val refreshedAt: Instant,
 ) {
-	enum class Source {
-		/** 内置演示课表，不联网。 */
-		DEMO,
+	enum class State {
+		/** 没有登录：没有课表可展示，界面只能引导去登录。 */
+		SIGNED_OUT,
 
-		/** 来自微生活后端。 */
-		REMOTE,
+		/** 有数据；[failure] 非空说明这是上一次成功的结果。 */
+		LOADED,
+
+		/** 没有数据，且刷新失败过。 */
+		FAILED,
 	}
 
-	val isDemo: Boolean get() = source == Source.DEMO
-
 	companion object {
+		/** 未登录时的输出：清空一切与账号有关的内容，避免退回界面时看到上一个人的名字。 */
+		fun signedOut(date: LocalDate, refreshedAt: Instant): TodayCourses = TodayCourses(
+			date = date,
+			week = 0,
+			state = State.SIGNED_OUT,
+			studentName = null,
+			studentCollege = null,
+			sessions = emptyList(),
+			failure = null,
+			refreshedAt = refreshedAt,
+		)
+
 		/**
 		 * 刷新失败时的输出：同一天的上一次结果原样保留，只把失败原因写进去。
 		 *
@@ -43,12 +57,13 @@ data class TodayCourses(
 			previous: TodayCourses?,
 			refreshedAt: Instant,
 		): TodayCourses {
-			val keep = previous?.takeIf { it.date == date }
+			val keep = previous?.takeIf { it.date == date && it.sessions.isNotEmpty() }
 			return TodayCourses(
 				date = date,
 				week = week.takeIf { it > 0 } ?: keep?.week ?: 0,
-				source = keep?.source ?: Source.REMOTE,
+				state = if (keep != null) State.LOADED else State.FAILED,
 				studentName = keep?.studentName,
+				studentCollege = keep?.studentCollege,
 				sessions = keep?.sessions.orEmpty(),
 				failure = message,
 				refreshedAt = refreshedAt,

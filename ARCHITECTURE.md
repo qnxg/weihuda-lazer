@@ -32,7 +32,7 @@
 
 | 模块          | 类型            | 放什么                                                                  | 明确不能出现的东西                                  |
 | ------------- | --------------- | ----------------------------------------------------------------------- | --------------------------------------------------- |
-| `core`        | Kotlin JVM      | 实体（`entity/`）、端口（`port/`）、用例（`usecase/`）、演示课表        | `android.*`、`io.ktor.*`、`kotlinx.serialization.*` |
+| `core`        | Kotlin JVM      | 实体（`entity/`）、端口（`port/`）、用例（`usecase/`）                   | `android.*`、`io.ktor.*`、`kotlinx.serialization.*` |
 | `data:remote` | Kotlin JVM      | 微生活后端适配器、DTO、信封拆包、字段映射                               | `android.*`、Glance、Compose                        |
 | `data:local`  | Android library | SharedPreferences、Keystore、快照 JSON                                  | Glance、WorkManager、界面                           |
 | `widget`      | Android library | presenter / 视图模型、Glance 视图、Worker、`CourseWidgetComponent` 门面 | 直接暴露 Glance 类型给 `app`                        |
@@ -44,8 +44,9 @@
    `@Serializable`，就是把 JSON 格式写进了内圈——那是 `data:local` 的事。
 2. `app` 不依赖 `data:*`，也不认识 ktor。它只有一个入口：`CourseWidgetComponent`。
 3. `widget` 的公开面只有三样东西：`CourseWidgetComponent`（动作与设置）、
-   `presentation.CourseWidget*`（视图模型与 presenter），以及 Android 必须能反射创建的四个类（`CourseWidget`、`CourseWidgetReceiver`、`RefreshWorker`、`RefreshAction`——它们由
-   `AndroidManifest.xml` / WorkManager 按类名实例化，不能 `internal`）。其余一律 `internal`。
+   `presentation.CourseWidget*`（视图模型与 presenter），以及 Android 必须能反射创建的五个类
+   （`CourseWidget`、`CourseWidgetReceiver`、`PinResultReceiver`、`RefreshWorker`、`RefreshAction`——
+   它们由 `AndroidManifest.xml` / WorkManager 按类名实例化，不能 `internal`）。其余一律 `internal`。
 
 ### 顶层目录为什么是「层」而不是「业务」
 
@@ -74,6 +75,42 @@ widget/presentation/CourseWidgetPresenter.kt ← 桌面上会显示什么
 `MainActivity`）。这正是 Clean
 Architecture 里 Main 的位置——**最脏的一层**，所有具体实现的名字只在这里出现。
 
+界面只有四屏：`ui/home`（使用者与卡片网格）、`ui/login`（学号 + 密码换令牌）、
+`ui/course`（单个卡片的设置与预览）、`ui/settings`（账号状态、后端地址与版本，所有卡片共用）。
+令牌与后端地址属于应用级配置，只在这里改一次；卡片设置页只放该卡片自己的选项。
+
+「添加到桌面」走 `AppWidgetManager.requestPinAppWidget`，但它的返回值只表示请求已交给桌面。
+MIUI 桌面的 `AddItemActivity` 会检查 AppOps `INSTALL_SHORTCUT`（用户界面里叫「桌面快捷方式」），
+默认对第三方应用是拒绝：它拉起后立刻以 `has no permission` 自行结束，既不弹窗也不回调。
+所以结果用「实例数是否增加」复核，失败时提示去应用设置里放开这个权限，并留一条长按桌面的手动路径。
+
+---
+
+## 一次登录走过的路
+
+```text
+LoginScreen（学号 + 密码）
+        │
+        ▼
+SignInInteractor.signIn()                          用例：校验、落盘
+        ├── AuthGateway.signIn()                    端口 → data:remote
+        │     ├── GET  /bind/pow?stuId=             PoW 票据（难度由服务端下发）
+        │     ├── sha256("{ticket}:{answer}")       实体之外的纯计算，在 Dispatchers.Default 上跑
+        │     ├── POST /bind                        密码 RSA-2048/PKCS#1 v1.5 加密后提交
+        │     └── GET  /token?code=                 换 JWT
+        └── SettingsStore.save()                    端口 → data:local（Keystore 加密令牌）
+        │
+        ▼
+AppState：回到首页并立刻刷新
+```
+
+密码只在这一次请求里出现，不落盘；本机只存令牌。未登录时 `TodayCourses.State` 是
+`SIGNED_OUT`，桌面与应用内都不展示任何课表，只给登录引导。
+
+登录用的 `code` 走的是后端的调试通道（`code=testing`）。副作用是该学号的 openid 会被改写到
+固定值上，小程序侧的绑定随之失效——后端补上 `POST /auth/login` 后换掉 `AuthGateway` 的实现即可，
+界面与用例不用动。
+
 ---
 
 ## 一次刷新走过的路
@@ -86,7 +123,7 @@ CourseWidgetComponent.refresh()                     组合根：按当前设置�
         │
         ▼
 RefreshTodayCoursesInteractor.refresh()             用例：编排
-        ├── SettingsStore.load()                    端口 → data:local
+        ├── SettingsStore.load()                    端口 → data:local（无令牌即输出 SIGNED_OUT）
         ├── SnapshotStore.readTodayCourses()        端口 → data:local
         ├── SemesterGateway.current()               端口 → data:remote
         ├── CourseGateway.timetable()               端口 → data:remote
@@ -132,7 +169,8 @@ TodayCourses（输出数据）
 - 没有快照 → 「正在获取课表」+ 提示点按进入应用，仍然是一张完整的卡片。
 - 有快照 → 正常的课表。
 - 刷新失败 → 保留**当天**上一次成功的数据，把失败原因写进快照，卡片上多一行提示。跨天就丢弃旧课表：昨天的课留在今天的卡片上是错误信息，比空白更糟。
-- 没有令牌 / 打开演示模式 → 用内置演示课表，装好即能看到效果，且完全离线。
+- 没有登录 → 快照是 `SIGNED_OUT`，卡片显示「未登录 / 登录校园账号以使用所有组件」。
+  应用里没有演示数据：空着比给一份假的课表诚实，也避免用户把假课当成当天安排。
 
 快照按 `WidgetId` 分键存储（现在是
 `today-courses`）。加一种新卡片就是加一个 id 和一组读写方法，而不是往同一份快照里塞字段——考试卡片与课程卡片的刷新节奏、数据来源、失败语义都不同，塞在一起只会互相牵制。
@@ -235,7 +273,7 @@ Worker 只做一件事：`CourseWidgetComponent.of(context).refresh()`。它自�
 5. `data:local`：`SnapshotStore` 的新方法 + `SnapshotDto`（新 format 版本）；
 6. `widget/`：`ExamWidget`（Glance）、`ExamWidgetReceiver`、`ExamPresenter` / `ExamView`、
    `ExamRefreshWorker` 与它的排期；门面里加 `ExamWidgetComponent`；
-7. `app/ui/`：小组件库里加一条入口与它的设置页；
+7. `app/ui/`：首页 grid 里加一张卡片（规划中就先置灰）与它的设置页；
 8. 文档：本文件、`README.md`、`AGENTS.md` 的「已实现的卡片」都要加。
 
 漏掉任何一层，编译器会告诉你（端口没实现、方法不存在）；漏掉文档不会——所以这一步靠 review 守住。
@@ -292,7 +330,7 @@ Gradle 9.9.0（wrapper）+ AGP 9.2.1 + Kotlin 2.4.21 + JDK 21 + compileSdk 36。
 | 状态不写进快照                           | 状态取决于当前时刻，写进快照必然过期                                           |
 | 失败返回带 `failure` 的输出              | 后台任务抛异常只会换来无意义的重试                                             |
 | 组合根放在 `widget` 组件内               | 前台（应用）与后台（Worker）共用同一份装配，杜绝两套适配器                     |
-| 不用 navigation-compose                  | 三屏、无深链接；一个 `when` 比一个导航图更短，换库也不影响下层                 |
+| 不用 navigation-compose                  | 四屏、无深链接；一个 `when` 比一个导航图更短，换库也不影响下层                 |
 | 不用 `androidx.security:security-crypto` | 该库已废弃；平台 Keystore API 足够，且少一个依赖                               |
 | 放弃 WebView 截图方案                    | 小组件不可交互、每次刷新要冷启 WebView，Android 17 还有 widget bitmap 内存上限 |
 
@@ -307,4 +345,4 @@ Gradle 9.9.0（wrapper）+ AGP 9.2.1 + Kotlin 2.4.21 + JDK 21 + compileSdk 36。
 | `Semester.startDate`              | `smester.startDate`      | 第一周的周日（后端字段名就是少一个 e）     |
 | `Course.dayOfWeek`                | `day`                    | 1=周一…7=周日；后端历史版本用 0 表示周日   |
 | `Course.period`                   | `time`                   | 小节次 1…12                                |
-| `TodayCourses.Source.DEMO/REMOTE` | —                        | 演示数据 / 实时数据                        |
+| `TodayCourses.State`              | —                        | `SIGNED_OUT` / `LOADED` / `FAILED`          |

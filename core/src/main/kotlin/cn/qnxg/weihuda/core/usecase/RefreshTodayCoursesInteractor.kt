@@ -1,6 +1,5 @@
 package cn.qnxg.weihuda.core.usecase
 
-import cn.qnxg.weihuda.core.demo.DemoTimetable
 import cn.qnxg.weihuda.core.entity.CampusClock
 import cn.qnxg.weihuda.core.entity.Settings
 import cn.qnxg.weihuda.core.entity.WidgetId
@@ -16,7 +15,7 @@ import java.time.LocalDate
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * 「今天上什么课」的编排：读设置 → 选演示或后端 → 合并小节 → 写快照。
+ * 「今天上什么课」的编排：读设置 → 未登录就输出登录态，否则请求后端 → 合并小节 → 写快照。
  *
  * 它不碰 Android、HTTP 和 JSON，全部外部能力都从构造函数进来，所以整条链路可以在
  * JVM 上用固定时钟和假适配器测。
@@ -37,26 +36,13 @@ class RefreshTodayCoursesInteractor(
 		val previous = snapshots.readTodayCourses(widgetId)
 
 		val result = if (!settings.usesRemoteData) {
-			demo(date)
+			TodayCourses.signedOut(date, clock.instant())
 		} else {
 			remote(settings, date, previous)
 		}
 
 		snapshots.writeTodayCourses(widgetId, result)
 		return result
-	}
-
-	private fun demo(date: LocalDate): TodayCourses {
-		val week = weekOf(DemoTimetable.semesterStart(date), date)
-		return TodayCourses(
-			date = date,
-			week = week,
-			source = TodayCourses.Source.DEMO,
-			studentName = DemoTimetable.studentName,
-			sessions = DemoTimetable.courses().sessionsOn(date.dayOfWeek.value, week),
-			failure = null,
-			refreshedAt = clock.instant(),
-		)
 	}
 
 	private suspend fun remote(
@@ -81,20 +67,21 @@ class RefreshTodayCoursesInteractor(
 			return failed(error, date, week, previous)
 		}
 
-		// 名字只是标题栏的装饰，取不到就用上一次的，不值得让整次刷新失败。
-		val studentName = try {
-			students.current(settings.credentials).name
+		// 名字与学院只是首页标题栏的装饰，取不到就用上一次的，不值得让整次刷新失败。
+		val student = try {
+			students.current(settings.credentials)
 		} catch (cancelled: CancellationException) {
 			throw cancelled
 		} catch (_: Exception) {
-			previous?.studentName
+			null
 		}
 
 		return TodayCourses(
 			date = date,
 			week = week,
-			source = TodayCourses.Source.REMOTE,
-			studentName = studentName,
+			state = TodayCourses.State.LOADED,
+			studentName = student?.name ?: previous?.studentName,
+			studentCollege = student?.college ?: previous?.studentCollege,
 			sessions = timetable.sessionsOn(date.dayOfWeek.value, week),
 			failure = null,
 			refreshedAt = clock.instant(),

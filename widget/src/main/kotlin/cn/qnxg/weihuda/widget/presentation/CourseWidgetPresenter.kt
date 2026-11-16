@@ -35,29 +35,36 @@ object CourseWidgetPresenter {
 
 		val rows = snapshot.sessions.map { it.toRow(now) }
 		val focusSession = snapshot.sessions.focus(now)
+		val signedOut = snapshot.state == TodayCourses.State.SIGNED_OUT
 
 		return CourseWidgetView(
-			weekLabel = if (isPlausibleWeek(snapshot.week)) "第 ${snapshot.week} 周" else "假期",
+			weekLabel = when {
+				signedOut -> "微生活课表"
+				isPlausibleWeek(snapshot.week) -> "第 ${snapshot.week} 周"
+				else -> "假期"
+			},
 			dayLabel = "${weekday(snapshot.date)} ${monthDay(snapshot.date)}",
 			dayLabelShort = weekday(snapshot.date),
 			rows = rows,
 			focus = focusSession?.toFocus(now),
 			focusTotalLabel = if (snapshot.sessions.size > 1) "今日共 ${snapshot.sessions.size} 节" else null,
 			emptyTitle = when {
-				snapshot.sessions.isNotEmpty() -> null
-				snapshot.failure != null -> "刷新失败"
+				!signedOut && snapshot.sessions.isNotEmpty() -> null
+				signedOut -> "未登录"
+				snapshot.state == TodayCourses.State.FAILED -> "刷新失败"
 				else -> "今日无课"
 			},
 			emptyDetail = when {
-				snapshot.sessions.isNotEmpty() -> null
-				snapshot.failure != null -> snapshot.failure
+				!signedOut && snapshot.sessions.isNotEmpty() -> null
+				signedOut -> "登录校园账号以使用此组件"
+				snapshot.state == TodayCourses.State.FAILED -> snapshot.failure
 				else -> "今天没有排课，点按查看完整课表"
 			},
 			failureLabel = snapshot.failure
 				?.takeIf { snapshot.sessions.isNotEmpty() }
 				?.let { "上次刷新失败：$it" },
 			sourceLabel = buildString {
-				append(if (snapshot.isDemo) "演示数据" else "实时数据")
+				append(if (signedOut) "未登录" else "实时数据")
 				append(" · ")
 				append(snapshot.refreshedAt.atZone(CampusClock.zone).format(clockFormat))
 			},

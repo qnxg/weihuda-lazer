@@ -55,6 +55,23 @@ cd weihuda-lazer
 `.editorconfig` 已声明 Kotlin / KTS 用 **tab**
 缩进，以便不同的开发者能选择他们喜欢的缩进长度，请注意编辑器的格式化设置。
 
+## 调试期注入令牌
+
+你可以使用演示账号进行登录，但你也可以使用自己的令牌，以显示你自己的数据。
+
+为了你的安全考虑，**请不要让令牌进入仓库**。
+
+你可以使用这两种方式指定 JWT，它们都只在 Debug 构建中有效。：
+
+1. **构建期**：用环境变量告诉 Gradle 令牌，再构建 debug 包。 使用 `WEIHUDA_DEBUG_JWT`
+   指定令牌的值，或使用 `WEIHUDA_DEBUG_JWT_FILE` 指定一个包含令牌的文件 。在 Android
+   Studio 里点运行时，把变量填进 Run Configuration 的 Environment variables。
+2. **运行期**：使用以下命令以在不重新构建的情况下直接切换令牌：
+
+   ```bash
+   adb shell am start -n cn.qnxg.weihuda.lazer/.MainActivity -e weihuda_jwt "<token>"
+   ```
+
 ## 测试
 
 | 模块          | 位置                    | 测什么                                    |

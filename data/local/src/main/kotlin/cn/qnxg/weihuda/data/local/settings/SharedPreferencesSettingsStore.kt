@@ -11,8 +11,7 @@ import kotlinx.coroutines.withContext
 /**
  * 设置与令牌的本机存放。
  *
- * 令牌用 Keystore 加密后再写入 SharedPreferences；其余字段是明文，因为它们本来就是
- * 用户自己选的开关和地址。默认演示模式打开，装好就能看到内容。
+ * 令牌用 Keystore 加密后再写入 SharedPreferences；后端地址是明文，它本来就是用户自己选的。
  */
 class SharedPreferencesSettingsStore(context: Context) : SettingsStore {
 
@@ -23,7 +22,6 @@ class SharedPreferencesSettingsStore(context: Context) : SettingsStore {
 		Settings(
 			baseUrl = prefs.getString(KEY_BASE_URL, null).orEmpty(),
 			credentials = Credentials(KeystoreTokenCipher.decrypt(prefs.getString(KEY_TOKEN, "").orEmpty())),
-			demoMode = prefs.getBoolean(KEY_DEMO, true),
 		)
 	}
 
@@ -31,7 +29,6 @@ class SharedPreferencesSettingsStore(context: Context) : SettingsStore {
 		prefs.edit()
 			.putString(KEY_BASE_URL, settings.baseUrl.trim())
 			.putString(KEY_TOKEN, KeystoreTokenCipher.encrypt(settings.credentials.token.trim()))
-			.putBoolean(KEY_DEMO, settings.demoMode)
 			.apply()
 	}
 
@@ -39,6 +36,5 @@ class SharedPreferencesSettingsStore(context: Context) : SettingsStore {
 		const val PREFS = "weihuda_settings"
 		const val KEY_BASE_URL = "base_url"
 		const val KEY_TOKEN = "token"
-		const val KEY_DEMO = "demo_mode"
 	}
 }

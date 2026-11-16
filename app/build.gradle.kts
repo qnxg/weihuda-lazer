@@ -1,5 +1,23 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+// 调试期用的令牌，不进仓库、不进 release。只从环境变量读，仓库里不写任何本机路径：
+// WEIHUDA_DEBUG_JWT 直接给令牌，WEIHUDA_DEBUG_JWT_FILE 给存令牌的文件。
+// 都没设置就是空串，等同于没配置。
+val debugJwt: String = run {
+	val direct = System.getenv("WEIHUDA_DEBUG_JWT")?.trim().orEmpty()
+	if (direct.isNotEmpty()) {
+		direct
+	} else {
+		System.getenv("WEIHUDA_DEBUG_JWT_FILE")
+			?.takeIf { it.isNotBlank() }
+			?.let(::File)
+			?.takeIf { it.isFile }
+			?.readText()
+			?.trim()
+			.orEmpty()
+	}
+}
+
 plugins {
 	alias(libs.plugins.android.application)
 	alias(libs.plugins.kotlin.compose)
@@ -19,6 +37,8 @@ android {
 		targetSdk = libs.versions.androidTargetSdk.get().toInt()
 		versionCode = 1
 		versionName = "0.2.0"
+		// release 恒为空串：构建产物里不嵌任何令牌。debug 在下面覆盖。
+		buildConfigField("String", "DEBUG_JWT", "\"\"")
 	}
 
 	buildTypes {
@@ -28,6 +48,9 @@ android {
 				getDefaultProguardFile("proguard-android-optimize.txt"),
 				"proguard-rules.pro",
 			)
+		}
+		debug {
+			buildConfigField("String", "DEBUG_JWT", "\"$debugJwt\"")
 		}
 	}
 
