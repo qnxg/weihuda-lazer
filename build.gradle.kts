@@ -1,6 +1,7 @@
 // weihuda!lazer
 // Copyright 2026 weihuda!lazer contributors. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
 import com.diffplug.gradle.spotless.SpotlessExtension
 
 plugins {

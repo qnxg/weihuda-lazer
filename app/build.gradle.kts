@@ -1,6 +1,7 @@
 // weihuda!lazer
 // Copyright 2026 weihuda!lazer contributors. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // 调试期用的令牌，不进仓库、不进 release。只从环境变量读，仓库里不写任何本机路径：

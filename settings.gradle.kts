@@ -1,6 +1,7 @@
 // weihuda!lazer
 // Copyright 2026 weihuda!lazer contributors. All rights reserved.
 // SPDX-License-Identifier: MIT OR Apache-2.0
+
 pluginManagement {
 	repositories {
 		// 国内镜像优先，官方仓库兜底：Google Maven 在国内网络下经常握手失败
