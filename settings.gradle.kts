@@ -22,6 +22,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "weihuda-lazer"
 
+// 依赖方向只能由编译器保证：core ← data:* ← app，core ← widget ← app。
+// 详见 ARCHITECTURE.md 的「模块与依赖方向」。
 include(":core")
+include(":data:remote")
+include(":data:local")
 include(":widget")
 include(":app")

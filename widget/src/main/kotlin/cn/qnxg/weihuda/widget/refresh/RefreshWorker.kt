@@ -2,18 +2,14 @@ package cn.qnxg.weihuda.widget.refresh
 
 import android.content.Context
 import androidx.work.CoroutineWorker
-import androidx.glance.appwidget.updateAll
 import androidx.work.WorkerParameters
-import cn.qnxg.weihuda.widget.CourseWidget
-import cn.qnxg.weihuda.widget.data.SettingsStore
-import cn.qnxg.weihuda.widget.data.SnapshotLoader
-import cn.qnxg.weihuda.widget.data.WidgetStore
+import cn.qnxg.weihuda.widget.CourseWidgetComponent
 
 /**
- * 拉取课表 → 写快照 → 重建所有小组件。
+ * 刷新作业：交给组件门面取一次数据并重建桌面。
  *
- * 失败也在 [SnapshotLoader] 里消化掉（保留当天旧数据 + 错误信息），
- * 因此这里始终返回 success，不触发 WorkManager 的指数退避重试风暴。
+ * 失败已经在用例里消化成快照上的错误信息，所以这里始终返回 success ——
+ * 交给 WorkManager 重试只会在令牌过期时变成一串无意义的请求。
  */
 class RefreshWorker(
 	appContext: Context,
@@ -21,11 +17,7 @@ class RefreshWorker(
 ) : CoroutineWorker(appContext, params) {
 
 	override suspend fun doWork(): Result {
-		val context = applicationContext
-		val settings = SettingsStore(context).load()
-		val snapshot = SnapshotLoader.load(context, settings)
-		WidgetStore.write(context, snapshot)
-		CourseWidget().updateAll(context)
+		CourseWidgetComponent.of(applicationContext).refresh()
 		return Result.success()
 	}
 }

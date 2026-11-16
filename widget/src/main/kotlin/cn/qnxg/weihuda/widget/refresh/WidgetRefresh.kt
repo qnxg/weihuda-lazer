@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
  * - 周期任务 15 分钟一次（系统允许的最小值），带网络约束；
  * - 手动刷新（点小组件「刷新」或打开应用）走一次性任务，并对同名任务去重。
  */
-object WidgetRefresh {
+internal object WidgetRefresh {
 	private const val UNIQUE_PERIODIC = "weihuda-course-refresh"
 	private const val UNIQUE_ONCE = "weihuda-course-refresh-now"
 
@@ -45,9 +45,9 @@ object WidgetRefresh {
 
 	/** 最后一个小组件被移除后停止后台刷新，避免白耗电。 */
 	fun cancelAll(context: Context) {
-		WorkManager.getInstance(context.applicationContext)
-			.cancelUniqueWork(UNIQUE_PERIODIC)
-		WorkManager.getInstance(context.applicationContext)
-			.cancelUniqueWork(UNIQUE_ONCE)
+		WorkManager.getInstance(context.applicationContext).apply {
+			cancelUniqueWork(UNIQUE_PERIODIC)
+			cancelUniqueWork(UNIQUE_ONCE)
+		}
 	}
 }

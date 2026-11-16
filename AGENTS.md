@@ -1,35 +1,56 @@
 # Android 小组件开发约束
 
-## 产品目标
+开发前先阅读 [ARCHITECTURE.md](./ARCHITECTURE.md)，以便了解项目架构 ，开发时需要遵循它的规划。
 
-- 面向湖南大学学生的桌面小组件，首个能力是「今日课程」，后续扩展考试、校园卡、电费等卡片。
-- 小组件只做**只读摘要**：详情、设置、登录全部在应用内完成。
-- 任何状态下都必须有内容：无课、刷新失败、未配置令牌都不能出现空白画布。
+本项目是面向湖南大学学生的桌面小组件库。
+
+## 分层约束
+
+依赖方向：`app → widget → data:* → core`。
+
+- `core` 只放实体、端口、用例和演示数据。**不允许** `import android.*`、
+  `io.ktor.*`、`kotlinx.serialization.*`；`core` 的依赖表里也不该出现它们。
+- 任何外部能力都从 `core/port/` 出去的接口进来；实现放在 `data:remote`（网络）或
+  `data:local`（磁盘、Keystore）。
+- 后端字段名只出现在 `data:remote/dto/` 与 `Mapping.kt`；`core.entity` 用领域词汇。
+- `app` 不 import `io.ktor`、`androidx.glance`、`data.*`；它只认 `CourseWidgetComponent` 与
+  `widget.presentation.CourseWidget*`。
+- `widget` 除门面与 presenter 之外一律 `internal`；不要把 Glance 类型泄漏给 `app`。
 
 ## 技术约束
 
-- 工具链固定为 Gradle 9.9.0（wrapper）+ AGP 9.2.1 + Kotlin 2.4.21 + JDK 21 + compileSdk 36；
-  AGP 上限由 Android Studio 决定（Studio 2026.1 → AGP 9.2.1），升 AGP 前先确认 IDE 是否支持；
-  AGP 9 起 Kotlin 由 AGP 内置，**不要**再加 `org.jetbrains.kotlin.android` 插件，Compose 编译器插件仍要保留。
-  升级任意一项都要先跑通 `:core:test`、`:app:lintDebug`、`:app:assembleDebug` 并在真机验证。
-- Kotlin / Gradle KTS 缩进使用 **tab**（`.editorconfig` 的 `[*.{kt,kts}]`），提交前不要用 IDE 的“重排为空格”。
-- 不要在某个模块里漏挂 `org.jetbrains.kotlin.plugin.compose`：Glance 模块自己写 `@Composable`，
-  缺少 Compose 编译器插件会报 `Couldn't inline method call: CompositionLocal.get current`。
-- Kotlin + Jetpack **Glance**（`androidx.glance:glance-appwidget`），不使用 Compose UI 写小组件，也不使用 WebView 截图方案。
-- 小组件布局只使用 RemoteViews 允许的能力：`Text` / `Image` / `Box` / `Row` / `Column` / `Spacer` 与 `background`、`cornerRadius`、`clickable`。
-- 刷新统一走 WorkManager：周期任务最短 15 分钟，`updatePeriodMillis` 恒为 0；手动刷新使用去重的一次性任务。
-- 小组件进程**不发网络请求**，只读 `WidgetStore` 中的快照；刷新失败时保留当天上一次成功的数据。
-- 令牌用 Android Keystore（AES-256-GCM）加密后存 SharedPreferences，不使用已废弃的 `androidx.security:security-crypto`。
-- `core` 模块保持纯 JVM：不引入 Android API，保证可在 JVM 上单测，并为 KMP 迁移留出空间。
+- 工具链固定为 Gradle 9.9.0（wrapper）+ AGP 9.2.1 + Kotlin 2.4.21 + JDK 21 + compileSdk
+  36；AGP 上限由 Android Studio 决定（Studio 2026.1 → AGP 9.2.1），升 AGP 前先确认 IDE 是否支持；AGP
+  9 起 Kotlin 由 AGP 内置，**不要**再加 `org.jetbrains.kotlin.android`
+  插件，Compose 编译器插件仍要保留。升级任意一项都要先跑通全部测试与
+  `:app:lintDebug`、`:app:assembleDebug`，并在真机验证。
+- Kotlin / Gradle KTS 缩进使用 **tab**（`.editorconfig` 的
+  `[*.{kt,kts}]`），提交前不要用 IDE 的“重排为空格”。
+- 不要在某个模块里漏挂 `org.jetbrains.kotlin.plugin.compose`：Glance 模块自己写
+  `@Composable`，缺少 Compose 编译器插件会报
+  `Couldn't inline method call: CompositionLocal.get current`。
+- Kotlin + Jetpack **Glance**（`androidx.glance:glance-appwidget`），不使用 Compose
+  UI 写小组件，也不使用 WebView 截图方案。
+- 小组件布局只使用 RemoteViews 允许的能力：`Text` / `Image` / `Box` / `Row` / `Column` / `Spacer` 与
+  `background`、`cornerRadius`、`clickable`。
+- 刷新统一走 WorkManager：周期任务最短 15 分钟，`updatePeriodMillis`
+  恒为 0；手动刷新使用去重的一次性任务。
+- 小组件渲染路径**不发网络请求、不写磁盘**，只读 `SnapshotStore`
+  里的快照；刷新失败时保留当天上一次成功的数据。
+- 令牌用 Android Keystore（AES-256-GCM）加密后存 SharedPreferences，不使用已废弃的
+  `androidx.security:security-crypto`；应用保持 `allowBackup="false"`。
+- `core` 与 `data:remote` 保持纯 JVM，保证可在 JVM 上单测，并为 KMP 迁移留出空间。
 
 ## 数据与接口
 
-- 接口契约以 `weihuda_backend` 已实现的接口为准（`docs/openapi.yaml`），不跟随尚未落地的 Web 草稿契约。
+- 接口契约以 `weihuda_backend`
+  已实现的接口为准（`docs/openapi.yaml`），不跟随尚未落地的 Web 草稿契约。
 - 鉴权头是裸 JWT：`Authorization: <token>`，没有 `Bearer` 前缀。
 - `day` 语义：周一为 1 … 周日为 7（后端历史版本出现过 0 表示周日，读取时兜底）。
-- `time` 是小节次 1…12；连续小节在展示前合并为一节课，课程名、课程代码、自定义 ID、教师、地点、班级任一不同都必须拆开。
+- `time`
+  是小节次 1…12；连续小节在展示前合并为一节课，课程名、课程代码、自定义 ID、教师、地点、班级任一不同都必须拆开。
 - 周次计算：`floor((今天 - 学期开始日期) / 7) + 1`，一周从周日开始。
-- 状态阈值：开课前 20 分钟内为「即将开始」，开始到结束为「上课中」，之后为「已结束」。
+- 状态阈值：开课前 20 分钟内为「即将开始」，开始到结束为「上课中」，之后为「已结束」；状态在渲染时用当前时刻计算，**不要**写进快照。
 
 ## 视觉
 
@@ -38,10 +59,33 @@
 - 圆角 18dp（小组件）/ 14dp（应用卡片），不使用重阴影；小组件为白底卡片。
 - 状态不能只靠颜色表达，4×4 形态必须显示状态文字。
 - 文本超长按字符截断（Glance 1.2 的 `Text` 没有 `overflow` 参数），完整信息保留在应用内。
+- 颜色令牌有两份：`app/ui/theme/Theme.kt`（Compose）与
+  `widget/WidgetContent.kt`（RemoteViews）。加令牌时两处都要加。
+
+## 注释
+
+- 注释应阐述“为什么”（why），而非“是什么”（what）：即核心意图、约束条件、被舍弃的方案，或是值得警示的后果。注意避免使用幼稚的语气，也不要过度解释。
+- 如果注释只是在复述代码逻辑，那么该修改的其实是代码本身——更清晰的命名或更精简的函数远胜于注释；尽量通过优化代码减少注释产生。
+- 文档注释应仅涵盖函数、模块或 crate 的使用方法，切勿涉及实现细节。
+- 注意修正或删除不准确或具有误导性的注释。当注释与代码不一致时，应以代码为准。
+- 注释应紧邻其所描述的代码，且两者之间的关联必须清晰明确。不要在局部注释中引用系统其他远端的内容，也不要复述显而易见的事实。
+- 仅保留开发所必需的信息。切勿在注释中记录变更历史（这些信息应由提交记录或 PR 负责）、保留被注释掉的代码、在注释中署名，或仅仅因为某个元素存在就为其添加注释。
+- 仅需为公开的 crate
+  API 编写文档；无需为每个私有辅助函数都添加说明——一个命名得当的短函数本身就已足够说明问题。
+- 文件头（如版权声明或 SPDX 标识）属于例外情况，这类注释并非针对代码逻辑本身。
 
 ## 质量门槛
 
-- `core` 的周次、合并、状态、快照序列化必须有单元测试。
-- 提交前运行 `./gradlew :core:test :app:assembleDebug`。
-- 在真机上验证三种尺寸的渲染、刷新按钮、点击进入应用与失败态。
-- 新增小组件形态时，同步更新 README 与本文档。
+- `core` 的周次、合并、状态、用例编排、失败语义必须有单元测试； `data:remote`
+  的信封与映射、`data:local` 的快照往返、`widget` 的 presenter 文案同样要有。
+- 提交前运行：
+
+  ```bash
+  ./gradlew :core:test :data:remote:test :data:local:testDebugUnitTest :widget:testDebugUnitTest
+  ./gradlew :app:lintDebug :app:assembleDebug
+  ```
+
+- 在真机上验证三种尺寸的渲染、刷新按钮、点击进入应用与失败态（见
+  [CONTRIBUTING.md](./CONTRIBUTING.md)）。
+- 新增小组件形态或新页面时，同步更新 [ARCHITECTURE.md](./ARCHITECTURE.md)、[README.md](./README.md)
+  与本文件。

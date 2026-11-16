@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
@@ -28,22 +29,36 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import cn.qnxg.weihuda.core.domain.CourseStatus
-import cn.qnxg.weihuda.core.domain.SessionSnapshot
-import cn.qnxg.weihuda.core.domain.WidgetSnapshot
-import cn.qnxg.weihuda.core.domain.isPlausibleWeek
-import cn.qnxg.weihuda.core.domain.monthDayLabel
-import cn.qnxg.weihuda.core.domain.weekdayLabel
+import cn.qnxg.weihuda.core.entity.CourseStatus
+import cn.qnxg.weihuda.widget.presentation.CourseWidgetView
+import cn.qnxg.weihuda.widget.presentation.FocusCard
+import cn.qnxg.weihuda.widget.presentation.SessionRow
 
-/** 三种信息密度，分别对应 2x2 / 4x2 / 4x4。 */
+/** 三种信息密度，分别对应 2×2 / 4×2 以上 / 4×4。 */
 internal enum class WidgetMode {
 	COMPACT,
 	WIDE,
 	LARGE,
 }
 
+internal val COMPACT_SIZE = DpSize(110.dp, 110.dp)
+
+/** 4×2，多数启动器把它排得更松，实际高度会落在 4×3。 */
+internal val WIDE_SIZE = DpSize(250.dp, 110.dp)
+
+internal val MEDIUM_SIZE = DpSize(250.dp, 170.dp)
+
+/** 4×4 */
+internal val LARGE_SIZE = DpSize(250.dp, 250.dp)
+
+/**
+ * 小组件的视图，属于 Humble Object：只把 [CourseWidgetView] 摆到屏幕上，不做业务判断。
+ *
+ * 布局只用 RemoteViews 允许的能力（Text / Image / Box / Row / Column / Spacer 与 background、
+ * cornerRadius、clickable），这也是为什么文案截断要在这里按字符做。
+ */
 @Composable
-internal fun WidgetContent(context: Context, snapshot: WidgetSnapshot?) {
+internal fun WidgetContent(context: Context, view: CourseWidgetView) {
 	val size = LocalSize.current
 	val mode = when {
 		size.width < 180.dp -> WidgetMode.COMPACT
@@ -52,7 +67,7 @@ internal fun WidgetContent(context: Context, snapshot: WidgetSnapshot?) {
 	}
 	// 桌面单元格的实际高度和 dp 估算并不一致（各家启动器不同），按真实尺寸决定行数
 	val rows = when (mode) {
-		WidgetMode.COMPACT -> 1
+		WidgetMode.COMPACT -> 0
 		WidgetMode.WIDE -> when {
 			size.height >= 160.dp -> 4
 			size.height >= 130.dp -> 3
@@ -76,21 +91,21 @@ internal fun WidgetContent(context: Context, snapshot: WidgetSnapshot?) {
 			.clickable(openApp),
 		verticalAlignment = Alignment.Top,
 	) {
-		Header(snapshot = snapshot, mode = mode)
-		Divider(mode)
-		Body(snapshot = snapshot, mode = mode, rows = rows)
-		if (mode != WidgetMode.COMPACT) Footer(snapshot)
+		Header(view = view, mode = mode)
+		Divider()
+		Body(view = view, mode = mode, rows = rows)
+		if (mode != WidgetMode.COMPACT) Footer(view)
 	}
 }
 
 @Composable
-private fun Header(snapshot: WidgetSnapshot?, mode: WidgetMode) {
+private fun Header(view: CourseWidgetView, mode: WidgetMode) {
 	Row(
 		modifier = GlanceModifier.fillMaxWidth(),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Text(
-			text = weekLabel(snapshot),
+			text = view.weekLabel,
 			style = TextStyle(
 				color = Palette.brand,
 				fontSize = if (mode == WidgetMode.COMPACT) 11.sp else 12.sp,
@@ -100,7 +115,7 @@ private fun Header(snapshot: WidgetSnapshot?, mode: WidgetMode) {
 		)
 		Spacer(GlanceModifier.defaultWeight())
 		Text(
-			text = dayLabel(snapshot, mode),
+			text = if (mode == WidgetMode.COMPACT) view.dayLabelShort else view.dayLabel,
 			style = TextStyle(
 				color = Palette.inkMuted,
 				fontSize = if (mode == WidgetMode.COMPACT) 10.sp else 11.sp,
@@ -111,7 +126,7 @@ private fun Header(snapshot: WidgetSnapshot?, mode: WidgetMode) {
 }
 
 @Composable
-private fun Divider(mode: WidgetMode) {
+private fun Divider() {
 	Box(
 		modifier = GlanceModifier
 			.fillMaxWidth()
@@ -122,62 +137,50 @@ private fun Divider(mode: WidgetMode) {
 }
 
 @Composable
-private fun ColumnScope.Body(snapshot: WidgetSnapshot?, mode: WidgetMode, rows: Int) {
+private fun ColumnScope.Body(view: CourseWidgetView, mode: WidgetMode, rows: Int) {
 	when {
-		snapshot == null -> Hint(
-			title = "正在获取课表",
-			detail = if (mode == WidgetMode.COMPACT) "点按设置" else "点按应用完成设置或刷新",
+		!view.hasRows -> Hint(
+			title = view.emptyTitle.orEmpty(),
+			detail = (view.emptyDetail ?: "").clip(if (mode == WidgetMode.COMPACT) 14 else 34),
 		)
 
-		snapshot.sessions.isEmpty() -> {
-			val error = snapshot.error
-			Hint(
-				title = if (error != null) "刷新失败" else "今日无课",
-				detail = error?.clip(if (mode == WidgetMode.COMPACT) 14 else 34)
-					?: if (mode == WidgetMode.COMPACT) "好好休息" else "今天没有排课，点按查看完整课表",
-			)
-		}
-
 		else -> Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-			val error = snapshot.error
-			if (error != null && mode == WidgetMode.LARGE) {
+			val failure = view.failureLabel
+			if (failure != null && mode == WidgetMode.LARGE) {
 				Text(
-					text = "上次刷新失败：${error.clip(24)}",
+					text = failure.clip(24),
 					style = TextStyle(color = Palette.error, fontSize = 9.sp),
 					maxLines = 1,
 				)
 			}
 			if (mode == WidgetMode.COMPACT) {
-				CompactCard(snapshot.sessions)
+				view.focus?.let { CompactCard(it, view.focusTotalLabel) }
 			} else {
-				snapshot.sessions.take(rows).forEach { session ->
+				view.rows.take(rows).forEach { row ->
 					when (mode) {
-						WidgetMode.WIDE -> WideRow(session)
-						else -> LargeRow(session)
+						WidgetMode.WIDE -> WideRow(row)
+						else -> LargeRow(row)
 					}
 				}
-			}
-			val hidden = snapshot.sessions.size - rows
-			if (hidden > 0 && mode != WidgetMode.COMPACT) {
-				Text(
-					text = "还有 $hidden 节",
-					style = TextStyle(color = Palette.inkMuted, fontSize = 9.sp),
-					maxLines = 1,
-				)
+				val hidden = view.rows.size - rows
+				if (hidden > 0) {
+					Text(
+						text = "还有 $hidden 节",
+						style = TextStyle(color = Palette.inkMuted, fontSize = 9.sp),
+						maxLines = 1,
+					)
+				}
 			}
 		}
 	}
 }
 
 /**
- * 2x2：只放大当前/下一节课，其余课程以「共 N 节」提示。
+ * 2×2：只放大当前/下一节课，其余课程以「共 N 节」提示。
  * 方形小尺寸里塞多行必然被裁切，不如把一节课讲清楚。
  */
 @Composable
-private fun CompactCard(sessions: List<SessionSnapshot>) {
-	val primary = sessions.firstOrNull { it.statusEnum == CourseStatus.ONGOING }
-		?: sessions.firstOrNull { it.statusEnum != CourseStatus.FINISHED }
-		?: sessions.first()
+private fun CompactCard(focus: FocusCard, totalLabel: String?) {
 	Row(
 		modifier = GlanceModifier.fillMaxWidth(),
 		verticalAlignment = Alignment.CenterVertically,
@@ -186,33 +189,30 @@ private fun CompactCard(sessions: List<SessionSnapshot>) {
 			modifier = GlanceModifier
 				.width(3.dp)
 				.height(38.dp)
-				.background(ColorProvider(statusColor(primary.statusEnum)))
+				.background(ColorProvider(statusColor(focus.status)))
 				.cornerRadius(2.dp),
 		) {}
 		Column(modifier = GlanceModifier.padding(start = 7.dp)) {
 			Text(
-				text = "${primary.startTime} - ${primary.endTime}",
+				text = focus.timeRange,
 				style = TextStyle(color = Palette.inkMuted, fontSize = 9.sp),
 				maxLines = 1,
 			)
 			Text(
-				text = primary.name.clip(7),
+				text = focus.name.clip(7),
 				style = TextStyle(color = Palette.ink, fontSize = 12.sp, fontWeight = FontWeight.Medium),
 				maxLines = 1,
 			)
 			Text(
-				text = listOfNotNull(
-					primary.place?.takeIf { it.isNotBlank() }?.clip(6),
-					primary.statusEnum.label.takeIf { it != CourseStatus.UPCOMING.label },
-				).joinToString(" · "),
+				text = focus.detail.clip(14),
 				style = TextStyle(color = Palette.inkMuted, fontSize = 9.sp),
 				maxLines = 1,
 			)
 		}
 	}
-	if (sessions.size > 1) {
+	if (totalLabel != null) {
 		Text(
-			text = "今日共 ${sessions.size} 节",
+			text = totalLabel,
 			modifier = GlanceModifier.padding(top = 4.dp),
 			style = TextStyle(color = Palette.inkMuted, fontSize = 9.sp),
 			maxLines = 1,
@@ -220,15 +220,15 @@ private fun CompactCard(sessions: List<SessionSnapshot>) {
 	}
 }
 
-/** 4x2：每节课压成一行，名称与地点同一行。 */
+/** 4×2：每节课压成一行，名称与地点同一行。 */
 @Composable
-private fun WideRow(session: SessionSnapshot) {
+private fun WideRow(row: SessionRow) {
 	Row(
 		modifier = GlanceModifier.fillMaxWidth().padding(vertical = 1.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Text(
-			text = session.startTime,
+			text = row.startTime,
 			modifier = GlanceModifier.width(34.dp),
 			style = TextStyle(color = Palette.ink, fontSize = 10.sp, fontWeight = FontWeight.Medium),
 			maxLines = 1,
@@ -237,16 +237,16 @@ private fun WideRow(session: SessionSnapshot) {
 			modifier = GlanceModifier
 				.width(2.dp)
 				.height(14.dp)
-				.background(ColorProvider(statusColor(session.statusEnum)))
+				.background(ColorProvider(statusColor(row.status)))
 				.cornerRadius(1.dp),
 		) {}
 		Text(
-			text = session.name.clip(9),
+			text = row.name.clip(9),
 			modifier = GlanceModifier.defaultWeight().padding(start = 6.dp),
 			style = TextStyle(color = Palette.ink, fontSize = 12.sp, fontWeight = FontWeight.Medium),
 			maxLines = 1,
 		)
-		session.place?.takeIf { it.isNotBlank() }?.let { place ->
+		row.place?.let { place ->
 			Text(
 				text = place.clip(6),
 				style = TextStyle(color = Palette.inkMuted, fontSize = 9.sp),
@@ -256,22 +256,22 @@ private fun WideRow(session: SessionSnapshot) {
 	}
 }
 
-/** 4x4：两行一节课，带状态文字。 */
+/** 4×4：两行一节课，带状态文字（状态不能只靠颜色表达）。 */
 @Composable
-private fun LargeRow(session: SessionSnapshot) {
-	val accent = ColorProvider(statusColor(session.statusEnum))
+private fun LargeRow(row: SessionRow) {
+	val accent = ColorProvider(statusColor(row.status))
 	Row(
 		modifier = GlanceModifier.fillMaxWidth().padding(vertical = 3.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Column(modifier = GlanceModifier.width(40.dp)) {
 			Text(
-				text = session.startTime,
+				text = row.startTime,
 				style = TextStyle(color = Palette.ink, fontSize = 11.sp, fontWeight = FontWeight.Medium),
 				maxLines = 1,
 			)
 			Text(
-				text = session.endTime,
+				text = row.endTime,
 				style = TextStyle(color = Palette.inkMuted, fontSize = 9.sp),
 				maxLines = 1,
 			)
@@ -285,21 +285,21 @@ private fun LargeRow(session: SessionSnapshot) {
 		) {}
 		Column(modifier = GlanceModifier.defaultWeight().padding(start = 8.dp)) {
 			Text(
-				text = session.name.clip(14),
+				text = row.name.clip(14),
 				style = TextStyle(color = Palette.ink, fontSize = 13.sp, fontWeight = FontWeight.Medium),
 				maxLines = 1,
 			)
 			Text(
 				text = listOfNotNull(
-					session.place?.takeIf { it.isNotBlank() },
-					"第 ${session.periodLabel} 节".takeIf { session.startPeriod != session.endPeriod },
+					row.place,
+					"第 ${row.periodLabel} 节".takeIf { row.periodLabel.contains("-") },
 				).joinToString(" · ").clip(20),
 				style = TextStyle(color = Palette.inkMuted, fontSize = 10.sp),
 				maxLines = 1,
 			)
 		}
 		Text(
-			text = session.statusEnum.label,
+			text = row.statusLabel,
 			style = TextStyle(color = accent, fontSize = 9.sp),
 			maxLines = 1,
 		)
@@ -328,13 +328,13 @@ private fun ColumnScope.Hint(title: String, detail: String) {
 }
 
 @Composable
-private fun Footer(snapshot: WidgetSnapshot?) {
+private fun Footer(view: CourseWidgetView) {
 	Row(
 		modifier = GlanceModifier.fillMaxWidth().padding(top = 5.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
 		Text(
-			text = sourceLabel(snapshot),
+			text = view.sourceLabel.clip(20),
 			style = TextStyle(color = Palette.inkMuted, fontSize = 9.sp),
 			maxLines = 1,
 		)
@@ -348,28 +348,8 @@ private fun Footer(snapshot: WidgetSnapshot?) {
 	}
 }
 
-private fun weekLabel(snapshot: WidgetSnapshot?): String {
-	snapshot ?: return "微生活课表"
-	return if (isPlausibleWeek(snapshot.week)) "第 ${snapshot.week} 周" else "假期"
-}
-
-private fun dayLabel(snapshot: WidgetSnapshot?, mode: WidgetMode): String {
-	snapshot ?: return ""
-	val weekday = weekdayLabel(snapshot.weekday)
-	if (mode == WidgetMode.COMPACT) return weekday
-	val date = snapshot.localDate ?: return weekday
-	return "$weekday ${monthDayLabel(date)}"
-}
-
-private fun sourceLabel(snapshot: WidgetSnapshot?): String {
-	snapshot ?: return "等待首次刷新"
-	val source = if (snapshot.isDemo) "演示数据" else "实时数据"
-	val time = snapshot.generatedAtLabel().let { if (it.isEmpty()) "" else " · $it" }
-	return "$source$time"
-}
-
 /** Glance 1.2 的 Text 没有 overflow 参数，按字符数手动截断。 */
-private fun String.clip(max: Int): String =
+internal fun String.clip(max: Int): String =
 	if (length <= max) this else take((max - 1).coerceAtLeast(1)) + "…"
 
 private fun statusColor(status: CourseStatus): Color = when (status) {

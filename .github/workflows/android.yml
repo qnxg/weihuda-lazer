@@ -29,8 +29,14 @@ jobs:
           sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
+      # 每个模块各自持有自己那层的测试：实体/用例、接口契约、快照格式、presenter 文案。
       - name: Unit tests
-        run: ./gradlew :core:test
+        run: >
+          ./gradlew
+          :core:test
+          :data:remote:test
+          :data:local:testDebugUnitTest
+          :widget:testDebugUnitTest
 
       - name: Lint
         run: ./gradlew :app:lintDebug

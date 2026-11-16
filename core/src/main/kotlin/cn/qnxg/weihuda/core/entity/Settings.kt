@@ -1,0 +1,27 @@
+package cn.qnxg.weihuda.core.entity
+
+/**
+ * 微生活后端的一次登录会话。
+ *
+ * 后端读的是裸 JWT（`Authorization: <token>`，没有 `Bearer` 前缀），
+ * 所以这里就是令牌本身，不再包一层 [WebToken] 之类的结构。
+ */
+@JvmInline
+value class Credentials(val token: String) {
+	val isPresent: Boolean get() = token.isNotBlank()
+}
+
+/**
+ * 用户在本机选择的取数方式，与界面上的「使用演示数据」「后端地址」一一对应。
+ *
+ * 它属于应用配置而不是实体规则，但跨层的每一方（用例、适配器、界面）都要读同一份，
+ * 所以在 core 里定义结构，落盘格式留给 `data:local`。
+ */
+data class Settings(
+	val baseUrl: String = "",
+	val credentials: Credentials = Credentials(""),
+	val demoMode: Boolean = true,
+) {
+	/** 只有关闭演示模式且拿到令牌时才会真的发请求。 */
+	val usesRemoteData: Boolean get() = !demoMode && credentials.isPresent
+}

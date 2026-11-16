@@ -31,11 +31,20 @@ kotlin {
 	}
 }
 
+// widget 是「课程小组件」这个组件本身：表现层 + 刷新作业 + 组合根。
+// app 只通过 CourseWidgetComponent 与 courseWidgetView 两个入口和它打交道。
 dependencies {
 	api(project(":core"))
+
+	implementation(project(":data:remote"))
+	implementation(project(":data:local"))
 
 	implementation(libs.androidx.core.ktx)
 	implementation(libs.androidx.glance.appwidget)
 	implementation(libs.androidx.work.runtime.ktx)
 	implementation(libs.kotlinx.coroutines.android)
+	implementation(libs.ktor.client.android)
+
+	testImplementation(libs.junit)
+	testImplementation(libs.kotlin.test.junit)
 }

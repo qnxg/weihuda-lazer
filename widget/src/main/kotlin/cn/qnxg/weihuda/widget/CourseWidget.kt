@@ -1,19 +1,20 @@
 package cn.qnxg.weihuda.widget
 
 import android.content.Context
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
-import cn.qnxg.weihuda.widget.data.WidgetStore
+import cn.qnxg.weihuda.core.entity.CampusClock
+import cn.qnxg.weihuda.core.entity.WidgetId
+import cn.qnxg.weihuda.widget.presentation.CourseWidgetPresenter
+import java.time.LocalTime
 
 /**
  * 课程小组件。
  *
- * 只负责渲染：数据由 [cn.qnxg.weihuda.widget.refresh.RefreshWorker] 写入
- * [WidgetStore]，写入后调用 `updateAll` 触发这里重新组合。
+ * 只渲染：读 [cn.qnxg.weihuda.widget.CourseWidgetComponent] 里最新的快照，
+ * 交给 presenter 变成文案，再摆到屏幕上。渲染路径上没有网络，也没有磁盘写入。
  */
 class CourseWidget : GlanceAppWidget() {
 
@@ -22,23 +23,14 @@ class CourseWidget : GlanceAppWidget() {
 	)
 
 	override suspend fun provideGlance(context: Context, id: GlanceId) {
-		val snapshot = runCatching { WidgetStore.read(context) }.getOrNull()
+		val snapshot = CourseWidgetComponent.of(context).readSnapshot()
+		val view = CourseWidgetPresenter.present(snapshot, LocalTime.now(CampusClock.clock()))
 		provideContent {
-			WidgetContent(context = context, snapshot = snapshot)
+			WidgetContent(context = context, view = view)
 		}
 	}
 
 	companion object {
-		/** 2x2 */
-		val COMPACT_SIZE = DpSize(110.dp, 110.dp)
-
-		/** 4x2 */
-		val WIDE_SIZE = DpSize(250.dp, 110.dp)
-
-		/** 4x3，多数启动器把 4x2 排得更松，实际高度会落在这里 */
-		val MEDIUM_SIZE = DpSize(250.dp, 170.dp)
-
-		/** 4x4 */
-		val LARGE_SIZE = DpSize(250.dp, 250.dp)
+		val widgetId: WidgetId = WidgetId.TodayCourses
 	}
 }

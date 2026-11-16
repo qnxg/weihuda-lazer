@@ -2,9 +2,10 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
 	alias(libs.plugins.kotlin.jvm)
-	alias(libs.plugins.kotlin.serialization)
 }
 
+// core 只有实体、用例和端口：不碰 Android、HTTP、JSON。
+// 任何 `import io.ktor.*` / `android.*` / `kotlinx.serialization.*` 出现在这里都是架构违规。
 kotlin {
 	jvmToolchain(17)
 	compilerOptions {
@@ -13,11 +14,7 @@ kotlin {
 }
 
 dependencies {
-	api(libs.kotlinx.serialization.json)
-	api(libs.ktor.client.core)
-	implementation(libs.ktor.client.android)
-	implementation(libs.kotlinx.coroutines.core)
-
+	testImplementation(libs.kotlinx.coroutines.core)
 	testImplementation(libs.junit)
 	testImplementation(libs.kotlin.test)
 }

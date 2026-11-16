@@ -18,7 +18,7 @@ android {
 		minSdk = libs.versions.androidMinSdk.get().toInt()
 		targetSdk = libs.versions.androidTargetSdk.get().toInt()
 		versionCode = 1
-		versionName = "0.1.0"
+		versionName = "0.2.0"
 	}
 
 	buildTypes {
@@ -54,13 +54,14 @@ kotlin {
 	}
 }
 
+// app 只有界面与组合根：不直接依赖任何 data 模块，也不认识 ktor / Glance。
+// 需要数据时通过 :widget 的门面（CourseWidgetComponent）拿。
 dependencies {
 	implementation(project(":core"))
 	implementation(project(":widget"))
 
 	implementation(libs.androidx.core.ktx)
 	implementation(libs.androidx.activity.compose)
-	implementation(libs.androidx.work.runtime.ktx)
 	implementation(libs.kotlinx.coroutines.android)
 
 	implementation(platform(libs.androidx.compose.bom))

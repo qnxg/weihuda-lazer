@@ -9,7 +9,8 @@ import cn.qnxg.weihuda.widget.refresh.WidgetRefresh
 /**
  * 小组件的广播入口。
  *
- * 系统每次要求更新时先渲染旧快照（保证立刻有内容），再触发一次后台刷新。
+ * 系统每次要求更新时先渲染旧快照（保证立刻有内容），再排一次后台刷新。
+ * 加新小组件时的规矩同此：receiver 只负责渲染与排期，不负责取数。
  */
 class CourseWidgetReceiver : GlanceAppWidgetReceiver() {
 
