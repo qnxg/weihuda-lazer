@@ -136,7 +136,7 @@ private fun MetricSettingsScreen(
 				HintText(pinHint)
 			}
 
-			SectionCard(title = "预览", subtitle = "2×2") {
+			SectionCard(title = "预览", subtitle = "2×1") {
 				MetricCardPreview(view = view)
 			}
 		}

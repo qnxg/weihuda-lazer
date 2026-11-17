@@ -20,7 +20,7 @@ import cn.qnxg.weihuda.widget.presentation.CardBalancePresenter
  */
 class CampusCardWidget : GlanceAppWidget() {
 
-	// 只有 2×2：信息就是一个数字，放大只会多出空白，所以不给启动器别的档位
+	// 只有 2×1：信息就是一个数字，放大只会多出空白，所以不给启动器别的档位
 	override val sizeMode: SizeMode = SizeMode.Single
 
 	override suspend fun provideGlance(context: Context, id: GlanceId) {

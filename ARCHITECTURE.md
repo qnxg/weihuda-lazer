@@ -165,7 +165,7 @@ TodayCourses（输出数据）
 快照里存的是学期的绝对日期（开学日、假期开始日、下学期开学日），**存不下「还有几天」**：
 阶段与天数由 `Semester.countdownOn(today)` 在渲染时算，跨天由午夜闹钟重绘，取数则按天一次。
 
-「校园卡余额」与「宿舍电量」是两张只有 2×2 的单值卡片，走的是同一条路再简化一层：
+「校园卡余额」与「宿舍电量」是两张只有 2×1 的单值卡片（左图标、右两行文字），走的是同一条路再简化一层：
 `CampusCardWidgetComponent` + `RefreshCardBalanceInteractor`（`GET /pt/card-info`）、
 `ElectricityWidgetComponent` + `RefreshElectricityBalanceInteractor`（`GET /electricity`）。
 两者的信息量相同（一个数字），所以共用 `MetricCardView` / `MetricCardContent` 这一套视图，

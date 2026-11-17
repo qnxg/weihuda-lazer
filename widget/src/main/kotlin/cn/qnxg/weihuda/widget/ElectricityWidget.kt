@@ -20,7 +20,7 @@ import cn.qnxg.weihuda.widget.presentation.ElectricityPresenter
  */
 class ElectricityWidget : GlanceAppWidget() {
 
-	// 只有 2×2，与校园卡同样只给一个档位
+	// 只有 2×1，与校园卡同样只给一个档位
 	override val sizeMode: SizeMode = SizeMode.Single
 
 	override suspend fun provideGlance(context: Context, id: GlanceId) {

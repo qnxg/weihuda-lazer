@@ -13,7 +13,7 @@ package cn.qnxg.weihuda.widget.presentation
 enum class MetricIcon { CAMPUS_CARD, DORM_ELECTRICITY }
 
 /**
- * 2×2 单值卡片的视图模型：图标 + 一行标签 + 一个大号数字。
+ * 2×1 单值卡片的视图模型：左边图标，右边一行标签 + 一行数字。
  *
  * 校园卡余额与宿舍电量的信息量相同（就是一个数字），所以共用这一种形状；
  * 差别只在 presenter 怎么把这个数字连同单位格式化成字符串。
@@ -24,7 +24,7 @@ data class MetricCardView(
 	val label: String,
 	/** 大号数字，已经带好单位；没有数据时是 `--`。 */
 	val value: String,
-	/** 有旧数据时的失败提示；空态下由 [emptyDetail] 承载原因。 */
+	/** 有旧数据时的失败提示：视图用它顶替 [label] 那一行（空态下由 [emptyDetail] 承载原因）。 */
 	val failureLabel: String?,
 	val emptyTitle: String?,
 	val emptyDetail: String?,
