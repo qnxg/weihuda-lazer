@@ -10,6 +10,7 @@ import android.content.Intent
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import cn.qnxg.weihuda.widget.refresh.WidgetRefresh
+import cn.qnxg.weihuda.widget.refresh.WidgetStatusAlarm
 
 /**
  * 小组件的广播入口。
@@ -52,6 +53,7 @@ class CourseWidgetReceiver : GlanceAppWidgetReceiver() {
 	override fun onDisabled(context: Context) {
 		super.onDisabled(context)
 		WidgetRefresh.cancelAll(context)
+		WidgetStatusAlarm.cancel(context)
 	}
 
 	companion object {

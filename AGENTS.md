@@ -34,8 +34,10 @@
   UI 写小组件，也不使用 WebView 截图方案。
 - 小组件布局只使用 RemoteViews 允许的能力：`Text` / `Image` / `Box` / `Row` / `Column` / `Spacer` 与
   `background`、`cornerRadius`、`clickable`。
-- 刷新统一走 WorkManager：周期任务最短 15 分钟，`updatePeriodMillis`
-  恒为 0；手动刷新使用去重的一次性任务。
+- 数据刷新统一走 WorkManager：周期任务最短 15 分钟，`updatePeriodMillis`
+  恒为 0；手动刷新使用去重的一次性任务。状态切换走 `AlarmManager` 边界闹钟
+  （开课前 20 分钟、开始、结束 + 1s、午夜），边界闹钟只重绘快照、不取数；
+  Android 12+ 需要 `SCHEDULE_EXACT_ALARM`，未授予时退回 `setAndAllowWhileIdle`，可能晚几分钟。
 - 小组件渲染路径**不发网络请求、不写磁盘**，只读 `SnapshotStore`
   里的快照；刷新失败时保留当天上一次成功的数据。
 - 令牌用 Android Keystore（AES-256-GCM）加密后存 SharedPreferences，不使用已废弃的

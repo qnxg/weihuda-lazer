@@ -4,11 +4,13 @@
 
 package cn.qnxg.weihuda.lazer.ui.course
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -43,6 +45,7 @@ fun CourseSettingsScreen(
 	onPin: () -> Unit,
 	onRefresh: () -> Unit,
 	onOpenAppSettings: () -> Unit,
+	onOpenExactAlarmSettings: () -> Unit,
 ) {
 	Column(
 		modifier = Modifier
@@ -79,6 +82,18 @@ fun CourseSettingsScreen(
 					}
 				}
 				HintText("或长按桌面空白处，选择「今日课程」小组件")
+			}
+
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+				SectionCard(title = "状态刷新") {
+					HintText(
+						"课程开始、结束和开课前 20 分钟会按点重绘。如果状态没有准点切换，" +
+							"检查 Android 12+ 的「闹钟与提醒」权限；没开时会退回近似闹钟，可能晚几分钟。",
+					)
+					OutlinedButton(onClick = onOpenExactAlarmSettings, modifier = Modifier.fillMaxWidth()) {
+						Text("打开闹钟权限")
+					}
+				}
 			}
 
 			SectionCard(title = "预览", subtitle = "2×2 / 4×2 / 4×4") {

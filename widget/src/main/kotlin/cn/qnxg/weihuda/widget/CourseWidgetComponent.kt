@@ -25,11 +25,15 @@ import cn.qnxg.weihuda.data.remote.PASSWORD_RESET_URL
 import cn.qnxg.weihuda.data.remote.WeihudaBackend
 import cn.qnxg.weihuda.data.remote.weihudaHttpClient
 import cn.qnxg.weihuda.widget.refresh.WidgetRefresh
+import cn.qnxg.weihuda.widget.refresh.WidgetStatusAlarm
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 
 /**
  * 「课程小组件」这个组件的公开门面，同时是它自己的组合根。
@@ -81,17 +85,24 @@ class CourseWidgetComponent private constructor(context: Context) {
 		CourseWidget().updateAll(appContext)
 		// updateAll 在应用前台时可能不生效，见 CourseWidgetReceiver.requestRerender
 		CourseWidgetReceiver.requestRerender(appContext)
+		WidgetStatusAlarm.scheduleNext(appContext)
 		return snapshot
 	}
 
 	/** 节流后的一次性刷新（点小组件里的「刷新」）。 */
 	fun requestRefresh() = WidgetRefresh.enqueueNow(appContext)
 
-	/** 应用启动时保证周期任务存在。 */
-	fun ensureScheduled() = WidgetRefresh.ensurePeriodic(appContext)
+	/** 应用启动时保证周期任务与状态边界闹钟都存在。 */
+	fun ensureScheduled() {
+		WidgetRefresh.ensurePeriodic(appContext)
+		CoroutineScope(Dispatchers.IO).launch { WidgetStatusAlarm.scheduleNext(appContext) }
+	}
 
-	/** 最后一个小组件被移除后调用，停止后台刷新。 */
-	fun cancelScheduled() = WidgetRefresh.cancelAll(appContext)
+	/** 最后一个小组件被移除后调用，停止后台刷新与状态闹钟。 */
+	fun cancelScheduled() {
+		WidgetRefresh.cancelAll(appContext)
+		WidgetStatusAlarm.cancel(appContext)
+	}
 
 	/** 一键添加的回执，只在桌面真的放下实例时触发；AppState 用它把「请求中」改成「已添加」。 */
 	private val pinResultFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)

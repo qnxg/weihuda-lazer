@@ -196,6 +196,23 @@ TodayCourses（输出数据）
 
 `TodayCourses.refreshedAt` 随快照保存，但不再上屏，也不参与状态判断；页脚只保留刷新失败提示。
 
+## 状态在边界点重绘
+
+只做到「渲染时现算」还不够：如果界面一直不重绘，状态就停在最后一次渲染，最多落后 15 分钟。
+`WidgetStatusAlarm` 在下面这些时刻排一次 `AlarmManager` 闹钟：
+
+- 开课前 20 分钟（未开始 → 即将开始）
+- 开始时刻（即将开始 → 上课中）
+- 结束时刻 + 1 秒（上课中 → 已结束；`statusAt` 在结束那一刻仍算上课中）
+- 当天午夜（唤醒后交给刷新链路取新一天的快照）
+
+闹钟到点只做两件事：让 `CourseWidgetReceiver` 重新渲染快照，然后按快照里的课程排下一次。
+**不取数**，所以边界切换不依赖网络。`nextStatusBoundary` 是纯函数，边界顺序在 JVM 上测。
+
+Android 12+ 需要 `SCHEDULE_EXACT_ALARM`（系统设置里的「闹钟与提醒」）。没有授予时退回
+`setAndAllowWhileIdle`，系统省电策略可能把它推迟几分钟；`CourseSettingsScreen` 提供入口。
+最后一个小组件被移除后取消闹钟。
+
 ---
 
 ## Humble Object：presenter / 视图
@@ -243,14 +260,15 @@ Compose 预览用 `isSystemInDarkTheme()` 解析。API 31+ 的 RemoteViews 会�
 
 ## 刷新与排期
 
-统一走 WorkManager，`updatePeriodMillis` 恒为 `0`：
+**数据刷新**统一走 WorkManager，`updatePeriodMillis` 恒为 `0`；**状态重绘**走 AlarmManager：
 
 | 场景               | 任务                          | 策略                                |
 | ------------------ | ----------------------------- | ----------------------------------- |
 | 周期刷新           | `PeriodicWorkRequest` 15 分钟 | `KEEP`→`UPDATE`，网络约束，指数退避 |
 | 点卡片「刷新」     | 一次性任务                    | `enqueueUniqueWork(REPLACE)` 去重   |
 | 应用启动           | 一次性任务                    | 同上，保证「装好就有内容」          |
-| 最后一个实例被移除 | `cancelAll`                   | 停止周期任务，避免白耗电            |
+| 状态边界           | `AlarmManager` 单次闹钟       | 精确优先，只重绘；跨天时触发刷新    |
+| 最后一个实例被移除 | `cancelAll` + `cancel`        | 停止周期任务与状态闹钟              |
 
 Worker 只做一件事：`CourseWidgetComponent.of(context).refresh()`。它自己不装配适配器、不发请求、不清洗错误——那些都发生在用例与组件门面里。
 

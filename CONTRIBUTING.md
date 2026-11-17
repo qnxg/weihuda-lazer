@@ -93,7 +93,7 @@ cd weihuda-lazer
 | `core`        | `core/src/test/`        | 周次、小节合并、状态、用例编排与失败语义  |
 | `data:remote` | `data/remote/src/test/` | 信封拆包、字段映射、错误翻译              |
 | `data:local`  | `data/local/src/test/`  | 快照往返、损坏数据、未知版本              |
-| `widget`      | `widget/src/test/`      | presenter 的文案、状态重算、空态          |
+| `widget`      | `widget/src/test/`      | presenter 的文案、状态重算、边界时刻、空态 |
 | `app`         | —                       | 界面只摆放 presenter 的输出，不写单元测试 |
 
 ## 版本与发布

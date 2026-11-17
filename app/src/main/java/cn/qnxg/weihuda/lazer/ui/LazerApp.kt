@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
@@ -77,6 +78,7 @@ fun LazerApp(
 			onPin = state::pinToHomeScreen,
 			onRefresh = state::refresh,
 			onOpenAppSettings = { context.startActivity(appDetailsIntent(context)) },
+			onOpenExactAlarmSettings = { context.openExactAlarmSettings() },
 		)
 
 		Screen.Settings -> SettingsScreen(
@@ -98,6 +100,17 @@ private fun usesMiuiHome(context: Context): Boolean {
 	val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
 	val resolved = context.packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)
 	return resolved?.activityInfo?.packageName == MIUI_HOME
+}
+
+/** Android 12+ 的「闹钟与提醒」特殊权限页；没有该页时退回应用详情，至少能看到权限入口。 */
+private fun Context.openExactAlarmSettings() {
+	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+	val intent = Intent(
+		Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+		Uri.fromParts("package", packageName, null),
+	)
+	runCatching { startActivity(intent) }
+		.onFailure { runCatching { startActivity(appDetailsIntent(this)) } }
 }
 
 private fun appDetailsIntent(context: Context): Intent =
