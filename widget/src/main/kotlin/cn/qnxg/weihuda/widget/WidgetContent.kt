@@ -116,9 +116,33 @@ private fun Divider() {
 @Composable
 private fun RowDivider() {
 	// padding 要加在外层：Glance 的 background 会跳过同一元素上的 padding
-	Row(modifier = GlanceModifier.fillMaxWidth().padding(start = 3.dp)) {
+	Row(modifier = GlanceModifier.fillMaxWidth().padding(start = 6.dp)) {
 		Box(
 			modifier = GlanceModifier.defaultWeight().height(1.dp).background(line),
+		) {}
+	}
+}
+
+/**
+ * 悬浮状态条：上下留白把它从行边缘收进来、两端圆角，行与行之间看起来是独立条目。
+ *
+ * 留白必须加在外层 Box：见 [RowDivider] 的说明，带背景的同一元素上加 padding 不会缩小色块。
+ *
+ * 圆角靠 [cornerRadius]，RemoteViews 只在 API 31+ 生效，低版本退化成方角，与卡片外壳同一限制。
+ */
+@Composable
+private fun StatusRail(status: CourseStatus, insetDp: Int) {
+	Box(
+		modifier = GlanceModifier
+			.fillMaxHeight()
+			.padding(start = 3.dp, top = insetDp.dp, bottom = insetDp.dp),
+	) {
+		Box(
+			modifier = GlanceModifier
+				.width(3.dp)
+				.fillMaxHeight()
+				.cornerRadius(1.5.dp)
+				.background(statusColor(status)),
 		) {}
 	}
 }
@@ -175,13 +199,8 @@ private fun CompactFocus(focus: FocusCard, totalLabel: String?) {
 			modifier = GlanceModifier.fillMaxWidth().height(56.dp),
 			verticalAlignment = Alignment.CenterVertically,
 		) {
-			Box(
-				modifier = GlanceModifier
-					.width(3.dp)
-					.fillMaxHeight()
-					.background(statusColor(focus.status)),
-			) {}
-			Column(modifier = GlanceModifier.defaultWeight().padding(start = 10.dp, top = 6.dp, end = 12.dp)) {
+			StatusRail(focus.status, insetDp = 7)
+			Column(modifier = GlanceModifier.defaultWeight().padding(start = 7.dp, top = 6.dp, end = 12.dp)) {
 				Text(
 					text = "${focus.startTime} - ${focus.endTime}",
 					style = TextStyle(color = inkMuted, fontSize = 9.sp),
@@ -217,15 +236,10 @@ private fun WideRow(row: SessionRow) {
 		modifier = GlanceModifier.fillMaxWidth().height(24.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		Box(
-			modifier = GlanceModifier
-				.width(3.dp)
-				.fillMaxHeight()
-				.background(statusColor(row.status)),
-		) {}
+		StatusRail(row.status, insetDp = 4)
 		Text(
 			text = row.startTime,
-			modifier = GlanceModifier.width(47.dp).padding(start = 14.dp),
+			modifier = GlanceModifier.width(47.dp).padding(start = 11.dp),
 			style = TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Bold),
 			maxLines = 1,
 		)
@@ -251,13 +265,8 @@ private fun MediumRow(row: SessionRow, heightDp: Int) {
 		modifier = GlanceModifier.fillMaxWidth().height(heightDp.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		Box(
-			modifier = GlanceModifier
-				.width(3.dp)
-				.fillMaxHeight()
-				.background(statusColor(row.status)),
-		) {}
-		Column(modifier = GlanceModifier.width(54.dp).padding(start = 14.dp)) {
+		StatusRail(row.status, insetDp = 6)
+		Column(modifier = GlanceModifier.width(54.dp).padding(start = 11.dp)) {
 			Text(
 				text = row.startTime,
 				style = TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Bold),
@@ -303,13 +312,8 @@ private fun LargeRow(row: SessionRow) {
 		modifier = GlanceModifier.fillMaxWidth().height(48.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		Box(
-			modifier = GlanceModifier
-				.width(3.dp)
-				.fillMaxHeight()
-				.background(statusColor(row.status)),
-		) {}
-		Column(modifier = GlanceModifier.width(58.dp).padding(start = 14.dp)) {
+		StatusRail(row.status, insetDp = 7)
+		Column(modifier = GlanceModifier.width(58.dp).padding(start = 11.dp)) {
 			Text(
 				text = row.startTime,
 				style = TextStyle(color = ink, fontSize = 16.sp, fontWeight = FontWeight.Bold),

@@ -24,9 +24,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cn.qnxg.weihuda.core.entity.CampusClock
@@ -145,9 +147,21 @@ private fun PreviewBody(
 @Composable
 private fun RowDivider(colors: PreviewColors) {
 	Row(Modifier.fillMaxWidth().height(1.dp)) {
-		Spacer(Modifier.width(3.dp))
+		Spacer(Modifier.width(6.dp))
 		Box(Modifier.weight(1f).fillMaxHeight().background(colors.line))
 	}
+}
+
+/** 与小组件的 StatusRail 保持一致：上下留白、两端圆角。 */
+@Composable
+private fun StatusRail(status: Color, inset: Dp) {
+	Box(
+		Modifier
+			.padding(start = 3.dp, top = inset, bottom = inset)
+			.width(3.dp)
+			.fillMaxHeight()
+			.background(status, RoundedCornerShape(1.5.dp)),
+	)
 }
 
 @Composable
@@ -186,8 +200,8 @@ private fun CompactFocus(focus: FocusCard, totalLabel: String?, colors: PreviewC
 			modifier = Modifier.fillMaxWidth().height(56.dp),
 			verticalAlignment = Alignment.CenterVertically,
 		) {
-			Box(Modifier.width(3.dp).fillMaxHeight().background(colors.status(focus.status)))
-			Column(Modifier.weight(1f).padding(start = 10.dp, top = 6.dp, end = 12.dp)) {
+			StatusRail(colors.status(focus.status), inset = 7.dp)
+			Column(Modifier.weight(1f).padding(start = 7.dp, top = 6.dp, end = 12.dp)) {
 				Text(
 					text = "${focus.startTime} - ${focus.endTime}",
 					color = colors.inkMuted,
@@ -227,12 +241,12 @@ private fun WideRow(row: SessionRow, colors: PreviewColors) {
 		modifier = Modifier.fillMaxWidth().height(24.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		Box(Modifier.width(3.dp).fillMaxHeight().background(colors.status(row.status)))
+		StatusRail(colors.status(row.status), inset = 4.dp)
 		Text(
 			text = row.startTime,
 			color = colors.ink,
 			style = Glyphs.wideTime,
-			modifier = Modifier.width(47.dp).padding(start = 14.dp),
+			modifier = Modifier.width(47.dp).padding(start = 11.dp),
 			maxLines = 1,
 		)
 		Text(
@@ -259,8 +273,8 @@ private fun LargeRow(row: SessionRow, colors: PreviewColors) {
 		modifier = Modifier.fillMaxWidth().height(48.dp),
 		verticalAlignment = Alignment.CenterVertically,
 	) {
-		Box(Modifier.width(3.dp).fillMaxHeight().background(colors.status(row.status)))
-		Column(Modifier.width(58.dp).padding(start = 14.dp)) {
+		StatusRail(colors.status(row.status), inset = 7.dp)
+		Column(Modifier.width(58.dp).padding(start = 11.dp)) {
 			Text(row.startTime, color = colors.ink, style = Glyphs.largeTime, maxLines = 1)
 			Text(row.endTime, color = colors.inkMuted, style = Glyphs.largeEnd, maxLines = 1)
 		}
