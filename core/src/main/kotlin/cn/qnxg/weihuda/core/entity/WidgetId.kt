@@ -15,5 +15,6 @@ value class WidgetId(val value: String) {
 	companion object {
 		val TodayCourses = WidgetId("today-courses")
 		val CampusNetwork = WidgetId("campus-network")
+		val SemesterCountdown = WidgetId("semester-countdown")
 	}
 }

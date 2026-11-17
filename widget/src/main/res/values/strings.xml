@@ -4,4 +4,6 @@
     <string name="widget_course_description">在桌面查看今天的课程、时间与地点</string>
     <string name="widget_network_name">校园网流量</string>
     <string name="widget_network_description">在桌面查看本月已用流量、账号状态与欠费</string>
+    <string name="widget_countdown_name">学期倒计时</string>
+    <string name="widget_countdown_description">在桌面查看距离学期结束（或开学）还有多少天</string>
 </resources>

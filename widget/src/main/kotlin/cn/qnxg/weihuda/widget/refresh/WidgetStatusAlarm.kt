@@ -4,14 +4,11 @@
 
 package cn.qnxg.weihuda.widget.refresh
 
-import android.annotation.SuppressLint
-import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import cn.qnxg.weihuda.core.entity.CampusClock
 import cn.qnxg.weihuda.widget.CourseWidgetComponent
 import cn.qnxg.weihuda.widget.CourseWidgetReceiver
@@ -46,41 +43,18 @@ internal object WidgetStatusAlarm {
 		} else {
 			nextStatusBoundary(snapshot.sessions, today, now)
 		}
-		set(appContext, next.toInstant().toEpochMilli())
+		WidgetAlarm.set(appContext, next.toInstant().toEpochMilli(), pendingIntent(appContext))
 	}
 
 	fun cancel(context: Context) {
 		val appContext = context.applicationContext
-		val alarmManager = appContext.getSystemService(AlarmManager::class.java) ?: return
-		alarmManager.cancel(pendingIntent(appContext))
+		WidgetAlarm.cancel(appContext, pendingIntent(appContext))
 	}
 
 	private fun hasWidgets(context: Context): Boolean =
 		AppWidgetManager.getInstance(context)
 			.getAppWidgetIds(ComponentName(context, CourseWidgetReceiver::class.java))
 			.isNotEmpty()
-
-	@SuppressLint("ScheduleExactAlarm")
-	private fun set(context: Context, triggerAtMillis: Long) {
-		val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
-		val pendingIntent = pendingIntent(context)
-		alarmManager.cancel(pendingIntent)
-
-		val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
-		if (exact) {
-			try {
-				alarmManager.setExactAndAllowWhileIdle(
-					AlarmManager.RTC_WAKEUP,
-					triggerAtMillis,
-					pendingIntent,
-				)
-				return
-			} catch (_: SecurityException) {
-				// 权限刚好被撤销：退回不精确的闹钟，状态最多晚几分钟
-			}
-		}
-		alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-	}
 
 	private fun pendingIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
 		context,

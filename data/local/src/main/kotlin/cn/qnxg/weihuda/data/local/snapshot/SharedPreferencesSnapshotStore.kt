@@ -8,6 +8,7 @@ import android.content.Context
 import cn.qnxg.weihuda.core.entity.WidgetId
 import cn.qnxg.weihuda.core.port.SnapshotStore
 import cn.qnxg.weihuda.core.usecase.NetworkTraffic
+import cn.qnxg.weihuda.core.usecase.SemesterCountdown
 import cn.qnxg.weihuda.core.usecase.TodayCourses
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,6 +44,17 @@ class SharedPreferencesSnapshotStore(context: Context) : SnapshotStore {
 	override suspend fun writeNetworkTraffic(id: WidgetId, snapshot: NetworkTraffic) {
 		withContext(Dispatchers.IO) {
 			prefs.edit().putString(key(id), NetworkSnapshotJson.encode(snapshot)).commit()
+		}
+	}
+
+	override suspend fun readSemesterCountdown(id: WidgetId): SemesterCountdown? =
+		withContext(Dispatchers.IO) {
+			CountdownSnapshotJson.decode(prefs.getString(key(id), null))
+		}
+
+	override suspend fun writeSemesterCountdown(id: WidgetId, snapshot: SemesterCountdown) {
+		withContext(Dispatchers.IO) {
+			prefs.edit().putString(key(id), CountdownSnapshotJson.encode(snapshot)).commit()
 		}
 	}
 

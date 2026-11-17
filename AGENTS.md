@@ -35,7 +35,7 @@
 - 小组件布局只使用 RemoteViews 允许的能力：`Text` / `Image` / `Box` / `Row` / `Column` / `Spacer` 与
   `background`、`cornerRadius`、`clickable`。
 - 数据刷新统一走 WorkManager：周期任务最短 15 分钟，`updatePeriodMillis`
-  恒为 0；手动刷新使用去重的一次性任务。状态切换走 `AlarmManager` 边界闹钟
+  恒为 0；手动刷新使用去重的一次性任务。课表与流量按 15 分钟，学期倒计时按天（学期日期一天之内不变）。状态切换走 `AlarmManager` 边界闹钟
   （开课前 20 分钟、开始、结束 + 1s、午夜），边界闹钟只重绘快照、不取数；
   Android 12+ 需要 `SCHEDULE_EXACT_ALARM`，未授予时退回 `setAndAllowWhileIdle`，可能晚几分钟。
 - 小组件渲染路径**不发网络请求、不写磁盘**，只读 `SnapshotStore`
@@ -53,6 +53,8 @@
 - 接口契约以 `weihuda_backend`
   已实现的接口为准（`docs/openapi.yaml`），不跟随尚未落地的 Web 草稿契约。
 - 鉴权头是裸 JWT：`Authorization: <token>`，没有 `Bearer` 前缀。
+- `/info/smester` 与 `/hdjw/class-start-date` 是公开接口（openapi 里 `security: []`），
+  倒计时卡片因此不依赖登录；不要把令牌硬塞进不需要鉴权的请求。
 - `day` 语义：周一为 1 … 周日为 7（后端历史版本出现过 0 表示周日，读取时兜底）。
 - `time`
   是小节次 1…12；连续小节在展示前合并为一节课，课程名、课程代码、自定义 ID、教师、地点、班级任一不同都必须拆开。
@@ -70,6 +72,8 @@
 - 状态色：上课中 `#2E7D32`，即将开始 `#E08600`，未开始 `#4A5560`，已结束 `#9AA5AF`，错误 `#D64545`。
 - 圆角 18dp（小组件）/ 14dp（应用卡片），不使用重阴影；小组件浅色白底、深色深灰蓝卡片。
 - 状态不能只靠颜色表达，4×3 / 4×4 形态必须显示状态文字。
+- 倒计时的天数面板与图标底片用 `brandSoft`（浅色 `#EDF4FB`、深色 `#22303C`），数字用 `brand`；
+  它是固定色值而不是 alpha，避免启动器对半透明色的处理差异。
 - 校园网卡片的进度条与「正常 / 无欠费」用 `WidgetPalette.success`（浅色 `#2E7D32`、深色 `#6ECB73`），
   进度槽复用分割线色。
 - 课程行用「状态色左轨 + 时间竖排 + 名称 + `第 N 节 | 地点 | 教师`」；4×3 / 4×4 两行一节课，

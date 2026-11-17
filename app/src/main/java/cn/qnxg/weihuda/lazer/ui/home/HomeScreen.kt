@@ -38,14 +38,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cn.qnxg.weihuda.core.entity.CampusClock
 import cn.qnxg.weihuda.core.entity.Settings
 import cn.qnxg.weihuda.core.usecase.NetworkTraffic
+import cn.qnxg.weihuda.core.usecase.SemesterCountdown
 import cn.qnxg.weihuda.core.usecase.TodayCourses
 import cn.qnxg.weihuda.lazer.R
 import cn.qnxg.weihuda.lazer.ui.Notice
 import cn.qnxg.weihuda.lazer.ui.login.SignedOutAvatar
 import cn.qnxg.weihuda.lazer.ui.theme.LazerColors
+import cn.qnxg.weihuda.widget.presentation.CountdownWidgetPresenter
 import cn.qnxg.weihuda.widget.presentation.NetworkWidgetPresenter
+import java.time.LocalDate
 
 /**
  * 首页：顶部是使用者，下面按主题排列已实现与规划中的卡片。
@@ -58,10 +62,12 @@ fun HomeScreen(
 	settings: Settings?,
 	snapshot: TodayCourses?,
 	networkSnapshot: NetworkTraffic?,
+	countdownSnapshot: SemesterCountdown?,
 	notice: Notice?,
 	onOpenLogin: () -> Unit,
 	onOpenCourseSettings: () -> Unit,
 	onOpenNetworkSettings: () -> Unit,
+	onOpenCountdownSettings: () -> Unit,
 	onOpenSettings: () -> Unit,
 ) {
 	val signedIn = settings?.credentials?.isPresent == true
@@ -74,6 +80,13 @@ fun HomeScreen(
 					title = "今日课程",
 					meta = courseStatus(signedIn, snapshot),
 					onClick = onOpenCourseSettings,
+				),
+				Tile(
+					icon = R.drawable.ic_book,
+					title = "学期倒计时",
+					// 学期信息是公开接口，未登录也有内容，所以不看 signedIn
+					meta = countdownStatus(countdownSnapshot),
+					onClick = onOpenCountdownSettings,
 				),
 				Tile(icon = R.drawable.ic_clipboard, title = "考试安排"),
 			),
@@ -294,6 +307,14 @@ private fun networkStatus(signedIn: Boolean, snapshot: NetworkTraffic?): String 
 	if (snapshot.failure != null) return "上次刷新失败"
 	val view = NetworkWidgetPresenter.present(snapshot)
 	return "本月 ${view.usedLabel} · ${view.percentLabel.orEmpty()}"
+}
+
+/** 首页只说一句「距离学期结束 47 天」；阶段名与天数都来自桌面同一个 presenter。 */
+private fun countdownStatus(snapshot: SemesterCountdown?): String {
+	if (snapshot == null) return "正在获取"
+	val view = CountdownWidgetPresenter.present(snapshot, LocalDate.now(CampusClock.clock()))
+	if (!view.hasData) return view.emptyTitle ?: "刷新失败"
+	return "${view.eyebrow} ${view.metricValue} 天"
 }
 
 private fun courseStatus(signedIn: Boolean, snapshot: TodayCourses?): String = when {

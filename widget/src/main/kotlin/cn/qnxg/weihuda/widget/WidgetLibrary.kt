@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 
 /**
  * 组件库的组合根：应用级配置（登录、后端地址、存储、HTTP）只在这里装配一次，
- * 每张卡片各自持有一个门面（[courseWidget] / [networkWidget]）。
+ * 每张卡片各自持有一个门面（[courseWidget] / [networkWidget] / [countdownWidget]）。
  *
  * 应用界面只认这一个入口，所以它不需要知道数据层实现了什么，也不会出现「桌面用一套适配器、
  * 应用内用另一套」的偏差。加卡片时新增一个门面，而不是复制登录与存储。
@@ -53,6 +53,8 @@ class WidgetLibrary private constructor(context: Context) {
 	val courseWidget: CourseWidgetComponent by lazy { CourseWidgetComponent(this) }
 
 	val networkWidget: NetworkWidgetComponent by lazy { NetworkWidgetComponent(this) }
+
+	val countdownWidget: CountdownWidgetComponent by lazy { CountdownWidgetComponent(this) }
 
 	suspend fun settings(): Settings = settingsStore.load()
 

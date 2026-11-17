@@ -44,11 +44,13 @@
    `@Serializable`，就是把 JSON 格式写进了内圈——那是 `data:local` 的事。
 2. `app` 不依赖 `data:*`，也不认识 ktor。它只有一个入口：`WidgetLibrary`（应用级配置，下面挂着每张卡片的 `CourseWidgetComponent` / `NetworkWidgetComponent`）。
 3. `widget` 的公开面只有：`WidgetLibrary`（登录、设置、快照与 HTTP 的装配）与每张卡片的门面
-   （`CourseWidgetComponent`、`NetworkWidgetComponent`）、`presentation.*`（视图模型、presenter、尺寸与颜色规则），
-   以及 Android 必须能反射创建的类（`CourseWidget`、`NetworkWidget`、`CourseWidgetReceiver`、
-   `NetworkWidgetReceiver`、`PinResultReceiver`、`RefreshWorker`、`NetworkRefreshWorker`、
-   `RefreshAction`、`NetworkRefreshAction`——它们由 `AndroidManifest.xml` / WorkManager 按类名实例化，
-   不能 `internal`）。其余一律 `internal`。
+   （`CourseWidgetComponent`、`NetworkWidgetComponent`、`CountdownWidgetComponent`）、`presentation.*`
+   （视图模型、presenter、尺寸与颜色规则），以及 Android 必须能反射创建的类（`CourseWidget`、
+   `NetworkWidget`、`CountdownWidget`、`CourseWidgetReceiver`、`NetworkWidgetReceiver`、
+   `CountdownWidgetReceiver`、`PinResultReceiver`、`RefreshWorker`、`NetworkRefreshWorker`、
+   `CountdownRefreshWorker`、`CountdownTickReceiver`、`RefreshAction`、`NetworkRefreshAction`
+   ——它们由 `AndroidManifest.xml` / WorkManager / AlarmManager 按类名实例化，不能 `internal`）。
+   其余一律 `internal`。
 
 ### 顶层目录为什么是「层」而不是「业务」
 
@@ -154,6 +156,11 @@ TodayCourses（输出数据）
 `RefreshNetworkTrafficInteractor`（`GET /netflow`），视图换成 `NetworkWidgetPresenter` / `NetworkWidgetView`。
 差别只在快照的有效期：课表按天，流量按月。
 
+「学期倒计时」卡片是这条路的第三种变体：用例换成 `RefreshSemesterCountdownInteractor`
+（`GET /info/smester`，**公开接口，不需要令牌**），所以它没有 `SIGNED_OUT` 态——未登录也有内容。
+快照里存的是学期的绝对日期（开学日、假期开始日、下学期开学日），**存不下「还有几天」**：
+阶段与天数由 `Semester.countdownOn(today)` 在渲染时算，跨天由午夜闹钟重绘，取数则按天一次。
+
 边界上的数据形状是分开的，三处都不共用类型：
 
 | 边界                    | 类型                 | 谁定义                | 备注                                             |
@@ -180,12 +187,13 @@ TodayCourses（输出数据）
 - 没有登录 → 快照是 `SIGNED_OUT`，卡片显示「未登录 / 登录校园账号以使用所有组件」。
   应用里没有演示数据：空着比给一份假的课表诚实，也避免用户把假课当成当天安排。
 
-快照按 `WidgetId` 分键存储（`today-courses`、`campus-network`）。加一种新卡片就是加一个 id
+快照按 `WidgetId` 分键存储（`today-courses`、`campus-network`、`semester-countdown`）。加一种新卡片就是加一个 id
 和一组读写方法，而不是往同一份快照里塞字段——考试卡片与课程卡片的刷新节奏、数据来源、失败语义都不同，
 塞在一起只会互相牵制。
 
 有效期也随卡片而异：课表快照只在当天有效，跨天就丢弃；流量快照按月结算，所以刷新失败时保留的是
-**同一个月**上一次成功的结果——上个月的数字留在卡片上会被当成这个月的用量。
+**同一个月**上一次成功的结果——上个月的数字留在卡片上会被当成这个月的用量；学期快照不按时间过期，
+假期与开学都是绝对日期，旧数据最多是「不知道校历改了」，而阶段仍然按当前日期重算。
 
 `SnapshotDto.version`
 让格式能演进：读到不认识的版本就当没有快照，桌面退回「正在获取课表」，而不是显示错位的数据或崩溃。
@@ -256,9 +264,11 @@ Compose 预览用 `isSystemInDarkTheme()` 解析。API 31+ 的 RemoteViews 会�
 
 ## 用例与失败语义
 
-| 用例                  | 输入         | 输出                      | 失败时                                |
-| --------------------- | ------------ | ------------------------- | ------------------------------------- |
-| `RefreshTodayCourses` | 无（读设置） | `TodayCourses` 并写入快照 | 返回带 `failure` 的输出，**不抛异常** |
+| 用例                     | 输入                     | 输出                         | 失败时                                |
+| ------------------------ | ------------------------ | ---------------------------- | ------------------------------------- |
+| `RefreshTodayCourses`    | 无（读设置）             | `TodayCourses` 并写入快照    | 返回带 `failure` 的输出，**不抛异常** |
+| `RefreshNetworkTraffic`  | 无（读设置）             | `NetworkTraffic` 并写入快照  | 同上，保留同月的旧数据                |
+| `RefreshSemesterCountdown` | 无（公开接口，不读设置） | `SemesterCountdown` 并写入快照 | 同上，保留上一次的学期日期            |
 
 失败不走异常，因为调用方是后台任务：抛出去只会变成 WorkManager 的重试风暴，而用户看到的东西没有区别。具体的失败语义：
 
@@ -274,13 +284,17 @@ Compose 预览用 `isSystemInDarkTheme()` 解析。API 31+ 的 RemoteViews 会�
 
 **数据刷新**统一走 WorkManager，`updatePeriodMillis` 恒为 `0`；**状态重绘**走 AlarmManager：
 
-| 场景               | 任务                          | 策略                                |
-| ------------------ | ----------------------------- | ----------------------------------- |
-| 周期刷新           | `PeriodicWorkRequest` 15 分钟 | `KEEP`→`UPDATE`，网络约束，指数退避 |
-| 点卡片「刷新」     | 一次性任务                    | `enqueueUniqueWork(REPLACE)` 去重   |
-| 应用启动           | 一次性任务                    | 同上，保证「装好就有内容」          |
-| 状态边界           | `AlarmManager` 单次闹钟       | 精确优先，只重绘；跨天时触发刷新    |
-| 最后一个实例被移除 | `cancelAll` + `cancel`        | 停止周期任务与状态闹钟              |
+| 场景               | 任务                                  | 策略                                |
+| ------------------ | ------------------------------------- | ----------------------------------- |
+| 周期刷新           | `PeriodicWorkRequest` 15 分钟 / 1 天  | `KEEP`→`UPDATE`，网络约束，指数退避 |
+| 点卡片「刷新」     | 一次性任务                            | `enqueueUniqueWork(REPLACE)` 去重   |
+| 应用启动           | 一次性任务                            | 同上，保证「装好就有内容」          |
+| 状态 / 日期边界    | `AlarmManager` 单次闹钟               | 精确优先，只重绘；跨天时触发刷新    |
+| 最后一个实例被移除 | `cancelAll` + `cancel`                | 停止周期任务、状态闹钟与日期闹钟    |
+
+周期任务默认 15 分钟；学期倒计时按**天**，因为学期日期一天之内不会变，15 分钟一次的轮询只会放大请求。
+它的天数跳动交给 `CountdownDayAlarm`：校区时区的午夜排一次闹钟，到点只重绘快照——快的填充宽度、
+`还有 47 天` 这类数字都不需要新数据。
 
 Worker 只做一件事：交给对应卡片的门面刷新（`WidgetLibrary.of(context).courseWidget.refresh()` /
 `.networkWidget.refresh()`）。它自己不装配适配器、不发请求、不清洗错误——那些都发生在用例与组件门面里。
@@ -298,6 +312,8 @@ worker 与任务名，改间隔时不会漏掉某一张。
 - `android:allowBackup="false"`：加密后的密文与密钥都不应离开本机。
 - 鉴权头是**裸 JWT**（`Authorization: <token>`，没有 `Bearer` 前缀），与后端 `openapi.yaml` 一致。
 - 小组件渲染路径**不发网络请求**，只读快照：桌面渲染进程拿不到令牌。
+- 学期倒计时用的 `/info/smester` 在 openapi 里是 `security: []`，所以这张卡片未登录也有内容；
+  令牌只出现在必须鉴权的接口上（课表、流量、学生信息）。
 - 加解密失败返回空令牌 → 用例退回演示数据，不会崩在启动路径上。
 
 详见 [SECURITY.md](./SECURITY.md)。
@@ -339,10 +355,10 @@ worker 与任务名，改间隔时不会漏掉某一张。
 
 | 位置          | 测什么                                       | 现在的测试                                 |
 | ------------- | -------------------------------------------- | ------------------------------------------ |
-| `core`        | 周次、小节合并、状态、失败快照语义、用例编排 | `TimetableTest`、`RefreshTodayCoursesTest`、`RefreshNetworkTrafficTest` |
+| `core`        | 周次、小节合并、状态、失败快照语义、用例编排 | `TimetableTest`、`RefreshTodayCoursesTest`、`RefreshNetworkTrafficTest`、`SemesterCountdownTest`、`RefreshSemesterCountdownTest` |
 | `data:remote` | 信封拆包、字段映射、错误翻译                 | `ApiContractTest`                          |
-| `data:local`  | 快照往返、损坏数据、版本不认                 | `SnapshotJsonTest`、`NetworkSnapshotJsonTest` |
-| `widget`      | presenter 的文案、状态重算、空态、尺寸规则   | `CourseWidgetPresenterTest`、`NetworkWidgetPresenterTest`、`WidgetLayoutTest` |
+| `data:local`  | 快照往返、损坏数据、版本不认                 | `SnapshotJsonTest`、`NetworkSnapshotJsonTest`、`CountdownSnapshotJsonTest` |
+| `widget`      | presenter 的文案、状态重算、空态、尺寸规则   | `CourseWidgetPresenterTest`、`NetworkWidgetPresenterTest`、`CountdownWidgetPresenterTest`、`WidgetLayoutTest`、`CountdownWidgetLayoutTest` |
 | `app`         | 不写单元测试：界面只摆放 presenter 的输出    | —                                          |
 
 用例测试全部用假适配器 + 固定时钟，不启 Android、不发 HTTP。视图（RemoteViews）不做自动化测试，真机验证见
@@ -392,3 +408,6 @@ Gradle 9.9.0（wrapper）+ AGP 9.2.1 + Kotlin 2.4.21 + JDK 21 + compileSdk 36。
 | `TodayCourses.State`              | —                        | `SIGNED_OUT` / `LOADED` / `FAILED`          |
 | `CampusNetwork`                   | `GET /netflow`           | 本月已用、套餐额度、锁定状态与欠费          |
 | `NetworkTraffic`                  | —                        | 流量卡片的快照内容，按月有效                |
+| `Semester`                        | `GET /info/smester`      | 学年、学期、开学日；假期与下学期开学日是绝对日期 |
+| `SemesterCountdown`               | —                        | 学期卡片的快照内容，不随时间失效             |
+| `SemesterPhase`                   | —                        | 未开学 / 学期中 / 假期，渲染时按当前日期算   |

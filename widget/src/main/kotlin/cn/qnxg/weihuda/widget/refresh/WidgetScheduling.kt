@@ -20,18 +20,26 @@ import java.util.concurrent.TimeUnit
  * 刷新排期的共用实现：每张卡片一个唯一的任务名，策略相同。
  *
  * Android 的 `updatePeriodMillis` 最短只有 30 分钟且不可靠，这里统一用 WorkManager：
- * - 周期任务 15 分钟一次（系统允许的最小值），带网络约束；
+ * - 周期任务默认 15 分钟一次（系统允许的最小值），带网络约束；学期倒计时按天（一天之内数据不会变）；
  * - 手动刷新（点小组件「刷新」或打开应用）走一次性任务，并对同名任务去重。
  *
- * 卡片之间只差 worker 与任务名，所以排期策略只有这一份，改间隔时不会漏掉某张卡。
+ * 卡片之间只差 worker、任务名与间隔，所以排期策略只有这一份，改间隔时不会漏掉某张卡。
  */
 internal object WidgetScheduling {
+	/** 系统允许的最小周期，也是课表与流量卡片的间隔。 */
+	private const val MIN_INTERVAL_MINUTES = 15L
+
 	private val networkConstraint = Constraints.Builder()
 		.setRequiredNetworkType(NetworkType.CONNECTED)
 		.build()
 
-	fun ensurePeriodic(context: Context, worker: Class<out ListenableWorker>, uniqueName: String) {
-		val request = PeriodicWorkRequest.Builder(worker, 15, TimeUnit.MINUTES)
+	fun ensurePeriodic(
+		context: Context,
+		worker: Class<out ListenableWorker>,
+		uniqueName: String,
+		intervalMinutes: Long = MIN_INTERVAL_MINUTES,
+	) {
+		val request = PeriodicWorkRequest.Builder(worker, intervalMinutes, TimeUnit.MINUTES)
 			.setConstraints(networkConstraint)
 			.setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
 			.build()

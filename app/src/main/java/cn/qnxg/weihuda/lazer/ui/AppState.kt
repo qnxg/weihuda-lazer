@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import cn.qnxg.weihuda.core.entity.Credentials
 import cn.qnxg.weihuda.core.entity.Settings
 import cn.qnxg.weihuda.core.usecase.NetworkTraffic
+import cn.qnxg.weihuda.core.usecase.SemesterCountdown
 import cn.qnxg.weihuda.core.usecase.SignInResult
 import cn.qnxg.weihuda.core.usecase.TodayCourses
 import cn.qnxg.weihuda.widget.WidgetLibrary
@@ -31,6 +32,9 @@ sealed interface Screen {
 	/** 校园网流量组件的设置。 */
 	data object NetworkSettings : Screen
 
+	/** 学期倒计时组件的设置。 */
+	data object CountdownSettings : Screen
+
 	/** 应用设置：账号、后端地址与版本。 */
 	data object Settings : Screen
 }
@@ -49,6 +53,7 @@ class AppState(
 ) {
 	private val courseWidget = library.courseWidget
 	private val networkWidget = library.networkWidget
+	private val countdownWidget = library.countdownWidget
 
 	var screen by mutableStateOf<Screen>(Screen.Home)
 		private set
@@ -60,6 +65,9 @@ class AppState(
 		private set
 
 	var networkSnapshot by mutableStateOf<NetworkTraffic?>(null)
+		private set
+
+	var countdownSnapshot by mutableStateOf<SemesterCountdown?>(null)
 		private set
 
 	var busy by mutableStateOf(false)
@@ -134,6 +142,7 @@ class AppState(
 			settings = library.settings()
 			snapshot = courseWidget.readSnapshot()
 			networkSnapshot = networkWidget.readSnapshot()
+			countdownSnapshot = countdownWidget.readSnapshot()
 
 			val current = settings?.credentials?.token.orEmpty()
 			val explicit = debugToken?.takeIf { it.isNotEmpty() && it != current }
@@ -157,6 +166,10 @@ class AppState(
 		scope.launch { refreshNetworkNow() }
 	}
 
+	fun refreshCountdown() {
+		scope.launch { refreshCountdownNow() }
+	}
+
 	/**
 	 * 保存后立刻刷新所有卡片。
 	 *
@@ -175,13 +188,17 @@ class AppState(
 		busy = true
 		val course = runCatching { courseWidget.refresh() }
 		val network = runCatching { networkWidget.refresh() }
+		val countdown = runCatching { countdownWidget.refresh() }
 		course.getOrNull()?.let { snapshot = it }
 		network.getOrNull()?.let { networkSnapshot = it }
+		countdown.getOrNull()?.let { countdownSnapshot = it }
 
 		val failure = course.getOrNull()?.failure
 			?: course.exceptionOrNull()?.message
 			?: network.getOrNull()?.failure
 			?: network.exceptionOrNull()?.message
+			?: countdown.getOrNull()?.failure
+			?: countdown.exceptionOrNull()?.message
 		val signedOut = course.getOrNull()?.state == TodayCourses.State.SIGNED_OUT ||
 			network.getOrNull()?.state == NetworkTraffic.State.SIGNED_OUT
 		notice = when {
@@ -222,9 +239,23 @@ class AppState(
 		busy = false
 	}
 
+	private suspend fun refreshCountdownNow() {
+		busy = true
+		runCatching { countdownWidget.refresh() }
+			.onSuccess { result ->
+				countdownSnapshot = result
+				notice = result.failure?.let { Notice("刷新失败：$it", isError = true) }
+					?: Notice("已刷新", isError = false)
+			}
+			.onFailure { notice = Notice("刷新失败：${it.message ?: "未知错误"}", isError = true) }
+		busy = false
+	}
+
 	fun pinCourse() = pinWidget(courseWidget::pinToHomeScreen, courseWidget::pinnedWidgetCount)
 
 	fun pinNetwork() = pinWidget(networkWidget::pinToHomeScreen, networkWidget::pinnedWidgetCount)
+
+	fun pinCountdown() = pinWidget(countdownWidget::pinToHomeScreen, countdownWidget::pinnedWidgetCount)
 
 	private fun pinWidget(request: () -> Boolean, pinnedCount: () -> Int) {
 		pinSettled = false
@@ -280,6 +311,7 @@ class AppState(
 			settings = library.settings()
 			snapshot = courseWidget.readSnapshot()
 			networkSnapshot = networkWidget.readSnapshot()
+			countdownSnapshot = countdownWidget.readSnapshot()
 			notice = Notice("已退出登录", isError = false)
 		}
 	}

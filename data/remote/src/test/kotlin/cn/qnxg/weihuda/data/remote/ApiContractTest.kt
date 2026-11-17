@@ -80,6 +80,34 @@ class ApiContractTest {
 	}
 
 	@Test
+	fun `vacation and next semester dates are parsed for the countdown`() {
+		val semester = SemesterDto(
+			startDate = "2026-09-13",
+			term = 1,
+			year = 2026,
+			vacation = "2027-01-03",
+			next = "2027-02-21",
+		).toEntity()
+
+		assertEquals(LocalDate.of(2027, 1, 3), semester.vacation)
+		assertEquals(LocalDate.of(2027, 2, 21), semester.next)
+	}
+
+	@Test
+	fun `unparsable vacation or next date is dropped instead of failing the refresh`() {
+		val semester = SemesterDto(
+			startDate = "2026-09-13",
+			term = 1,
+			year = 2026,
+			vacation = "另行通知",
+			next = null,
+		).toEntity()
+
+		assertEquals(null, semester.vacation)
+		assertEquals(null, semester.next)
+	}
+
+	@Test
 	fun `unparsable semester start date is a gateway failure`() {
 		val error = assertFailsWith<GatewayException> {
 			SemesterDto(startDate = "第三周", term = 1, year = 2026).toEntity()

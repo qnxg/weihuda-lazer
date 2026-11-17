@@ -25,6 +25,14 @@ object WidgetPalette {
 	val surface = WidgetColor(0xFFFFFFFF.toInt(), 0xFF1A222C.toInt())
 	val line = WidgetColor(0xFFEDF1F5.toInt(), 0xFF2B3542.toInt())
 	val brand = WidgetColor(0xFF318CCB.toInt(), 0xFF5FAEE3.toInt())
+
+	/**
+	 * 品牌色的淡化底：倒计时的天数面板与图标底片。
+	 *
+	 * 不用 alpha 而固定值：启动器的 RemoteViews 对半透明颜色的处理不一致，
+	 * 把「品牌蓝叠在白/深灰蓝上」的结果直接写成色值，深浅两套都稳定。
+	 */
+	val brandSoft = WidgetColor(0xFFEDF4FB.toInt(), 0xFF22303C.toInt())
 	val ink = WidgetColor(0xFF1B2733.toInt(), 0xFFE6EDF3.toInt())
 	val inkMuted = WidgetColor(0xFF6A7883.toInt(), 0xFF93A1AE.toInt())
 	val error = WidgetColor(0xFFD64545.toInt(), 0xFFFF7B72.toInt())

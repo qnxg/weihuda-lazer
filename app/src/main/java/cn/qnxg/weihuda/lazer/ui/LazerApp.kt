@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import cn.qnxg.weihuda.lazer.ui.countdown.CountdownSettingsScreen
 import cn.qnxg.weihuda.lazer.ui.course.CourseSettingsScreen
 import cn.qnxg.weihuda.lazer.ui.home.HomeScreen
 import cn.qnxg.weihuda.lazer.ui.login.LoginScreen
@@ -57,10 +58,12 @@ fun LazerApp(
 			settings = state.settings,
 			snapshot = state.snapshot,
 			networkSnapshot = state.networkSnapshot,
+			countdownSnapshot = state.countdownSnapshot,
 			notice = state.notice,
 			onOpenLogin = { state.open(Screen.Login) },
 			onOpenCourseSettings = { state.open(Screen.CourseSettings) },
 			onOpenNetworkSettings = { state.open(Screen.NetworkSettings) },
+			onOpenCountdownSettings = { state.open(Screen.CountdownSettings) },
 			onOpenSettings = { state.open(Screen.Settings) },
 		)
 
@@ -92,6 +95,17 @@ fun LazerApp(
 			canOpenAppSettings = miuiHome,
 			onPin = state::pinNetwork,
 			onRefresh = state::refreshNetwork,
+			onOpenAppSettings = { context.startActivity(appDetailsIntent(context)) },
+		)
+
+		Screen.CountdownSettings -> CountdownSettingsScreen(
+			snapshot = state.countdownSnapshot,
+			notice = state.notice,
+			busy = state.busy,
+			pinBlocked = state.pinBlocked,
+			canOpenAppSettings = miuiHome,
+			onPin = state::pinCountdown,
+			onRefresh = state::refreshCountdown,
 			onOpenAppSettings = { context.startActivity(appDetailsIntent(context)) },
 		)
 

@@ -24,8 +24,18 @@ internal fun SemesterDto.toEntity(): Semester {
 	} catch (_: DateTimeParseException) {
 		throw GatewayException(code = -1, message = "学期开始日期无法解析：$startDate")
 	}
-	return Semester(year = year, term = term, startDate = start, vacation = vacation, next = next)
+	// 假期与开学日期只有倒计时会用到：解析不了就当没有，不为装饰性的字段让整次刷新失败
+	return Semester(
+		year = year,
+		term = term,
+		startDate = start,
+		vacation = vacation.toDateOrNull(),
+		next = next.toDateOrNull(),
+	)
 }
+
+private fun String?.toDateOrNull(): LocalDate? =
+	this?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
 internal fun CourseDto.toEntity(): Course = Course(
 	name = courseName,

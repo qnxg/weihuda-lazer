@@ -16,6 +16,7 @@ internal class PreviewColors(private val night: Boolean) {
 	val surface = Color(WidgetPalette.surface.resolve(night))
 	val line = Color(WidgetPalette.line.resolve(night))
 	val brand = Color(WidgetPalette.brand.resolve(night))
+	val brandSoft = Color(WidgetPalette.brandSoft.resolve(night))
 	val ink = Color(WidgetPalette.ink.resolve(night))
 	val inkMuted = Color(WidgetPalette.inkMuted.resolve(night))
 	val error = Color(WidgetPalette.error.resolve(night))

@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 data class LazerPalette(
 	val brand: Color,
 	val brandDark: Color,
+	/** 品牌色的淡化底：倒计时的天数面板与图标底片，与小组件的 `WidgetPalette.brandSoft` 同值。 */
+	val brandSoft: Color,
 	val ink: Color,
 	val inkMuted: Color,
 	val pageBackground: Color,
@@ -33,6 +35,7 @@ data class LazerPalette(
 private val LightPalette = LazerPalette(
 	brand = Color(0xFF318CCB),
 	brandDark = Color(0xFF1F5F8B),
+	brandSoft = Color(0xFFEDF4FB),
 	ink = Color(0xFF1B2733),
 	inkMuted = Color(0xFF6A7883),
 	pageBackground = Color(0xFFF4F6F9),
@@ -47,6 +50,7 @@ private val LightPalette = LazerPalette(
 private val DarkPalette = LazerPalette(
 	brand = Color(0xFF318CCB),
 	brandDark = Color(0xFF1F5F8B),
+	brandSoft = Color(0xFF22303C),
 	ink = Color(0xFFE6EDF3),
 	inkMuted = Color(0xFF93A1AE),
 	pageBackground = Color(0xFF10151B),
@@ -69,6 +73,7 @@ private val LocalLazerPalette = staticCompositionLocalOf { LightPalette }
 object LazerColors {
 	val Brand: Color @Composable get() = LocalLazerPalette.current.brand
 	val BrandDark: Color @Composable get() = LocalLazerPalette.current.brandDark
+	val BrandSoft: Color @Composable get() = LocalLazerPalette.current.brandSoft
 	val Ink: Color @Composable get() = LocalLazerPalette.current.ink
 	val InkMuted: Color @Composable get() = LocalLazerPalette.current.inkMuted
 	val PageBackground: Color @Composable get() = LocalLazerPalette.current.pageBackground
