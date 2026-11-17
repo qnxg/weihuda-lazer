@@ -4,9 +4,7 @@
 
 package cn.qnxg.weihuda.widget.presentation
 
-import cn.qnxg.weihuda.core.entity.CampusClock
 import cn.qnxg.weihuda.core.entity.CourseSession
-import cn.qnxg.weihuda.core.entity.CourseStatus
 import cn.qnxg.weihuda.core.entity.focus
 import cn.qnxg.weihuda.core.entity.isPlausibleWeek
 import cn.qnxg.weihuda.core.usecase.TodayCourses
@@ -34,7 +32,6 @@ object CourseWidgetPresenter {
 			emptyTitle = "正在获取课表",
 			emptyDetail = "点按应用完成设置或刷新",
 			failureLabel = null,
-			sourceLabel = "等待首次刷新",
 		)
 
 		val rows = snapshot.sessions.map { it.toRow(now) }
@@ -64,21 +61,20 @@ object CourseWidgetPresenter {
 				snapshot.state == TodayCourses.State.FAILED -> snapshot.failure
 				else -> "今天没有排课，点按查看完整课表"
 			},
+			// 有旧数据时失败只在页脚提示，屏幕上仍然是当天有效的课表
 			failureLabel = snapshot.failure
 				?.takeIf { snapshot.sessions.isNotEmpty() }
-				?.let { "上次刷新失败：$it" },
-			sourceLabel = buildString {
-				append(if (signedOut) "未登录" else "实时数据")
-				append(" · ")
-				append(snapshot.refreshedAt.atZone(CampusClock.zone).format(clockFormat))
-			},
+				?.let { "刷新失败 · $it" },
 		)
 	}
 
 	private fun CourseSession.toRow(now: LocalTime): SessionRow = SessionRow(
 		name = name,
-		place = place?.takeIf { it.isNotBlank() },
-		periodLabel = periodLabel,
+		detail = listOfNotNull(
+			"第 ${periodLabel.replace('-', '–')} 节",
+			place?.takeIf { it.isNotBlank() },
+			teacher?.takeIf { it.isNotBlank() },
+		).joinToString(" | "),
 		startTime = startTime.format(clockFormat),
 		endTime = endTime.format(clockFormat),
 		status = statusAt(now),
@@ -87,12 +83,13 @@ object CourseWidgetPresenter {
 	private fun CourseSession.toFocus(now: LocalTime): FocusCard {
 		val status = statusAt(now)
 		return FocusCard(
-			timeRange = "${startTime.format(clockFormat)} - ${endTime.format(clockFormat)}",
+			startTime = startTime.format(clockFormat),
+			endTime = endTime.format(clockFormat),
 			name = name,
 			detail = listOfNotNull(
 				place?.takeIf { it.isNotBlank() },
-				status.label.takeIf { status != CourseStatus.UPCOMING },
-			).joinToString(" · "),
+				status.label,
+			).joinToString(" | "),
 			status = status,
 		)
 	}

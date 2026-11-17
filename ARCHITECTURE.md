@@ -44,7 +44,7 @@
    `@Serializable`，就是把 JSON 格式写进了内圈——那是 `data:local` 的事。
 2. `app` 不依赖 `data:*`，也不认识 ktor。它只有一个入口：`CourseWidgetComponent`。
 3. `widget` 的公开面只有三样东西：`CourseWidgetComponent`（动作与设置）、
-   `presentation.CourseWidget*`（视图模型与 presenter），以及 Android 必须能反射创建的五个类
+   `presentation.*`（视图模型、presenter、尺寸与颜色规则），以及 Android 必须能反射创建的五个类
    （`CourseWidget`、`CourseWidgetReceiver`、`PinResultReceiver`、`RefreshWorker`、`RefreshAction`——
    它们由 `AndroidManifest.xml` / WorkManager 按类名实例化，不能 `internal`）。其余一律 `internal`。
 
@@ -194,7 +194,7 @@ TodayCourses（输出数据）
 所以 `statusAt(now)`
 在 presenter 里现算。这也是「实体的规则」与「快照的数据」分开的直接好处：时间相关的判断没有机会被固化。
 
-`TodayCourses.refreshedAt` 只是用来显示「实时数据 · 09:12」，不参与状态判断。
+`TodayCourses.refreshedAt` 随快照保存，但不再上屏，也不参与状态判断；页脚只保留刷新失败提示。
 
 ---
 
@@ -205,15 +205,23 @@ RemoteViews 无法在单元测试里断言，所以它必须是 humble 的： `W
 
 判断全部在 `CourseWidgetPresenter`：
 
-- 文案（`第 10 周` / `假期`、`周一 11/16`、`今日共 2 节`、`上次刷新失败：…`）
+- 文案（`第 10 周` / `假期`、`周一 11/16`、`今日共 2 节`、`刷新失败 · …`、`第 1–2 节 | 地点 | 教师`）
 - 顺序与聚焦（2×2 聚焦正在上或下一节，全部结束后退回最后一节）
 - 状态（`statusAt(now)`）
 - 空态文案（`今日无课` / `刷新失败` / `正在获取课表`）
 
-应用内预览（`CourseWidgetPreview`）用的是**同一个 presenter**，只是画在 Compose 里。所以「预览和桌面说的不一样」这类问题不会出现，而 presenter 的行为可以在 JVM 上测。
+应用内预览（`CourseWidgetPreview`）用的是**同一个 presenter**，只是画在 Compose 里。颜色也共用
+`widget.presentation.WidgetPalette`（深浅成对），所以「预览和桌面说的不一样」这类问题不会出现，
+而 presenter 的行为可以在 JVM 上测。
 
-截断长度、行数这类**与尺寸有关**的东西留在视图（`WidgetContent` 里的 `clip`、按 `LocalSize`
-决定行数）：那是 RemoteViews 的能力边界，不是业务规则。
+尺寸规则集中在 `WidgetLayout`：2×2 聚焦一节课，4×2 单行，4×3 两行一节课（行高随课程数在 32–48dp
+之间撑开），4×4 用参考课表条目的 48dp 两行布局。截断长度、行数这类**与尺寸有关**的东西留在视图
+（`WidgetContent` 里的 `clip`、按 `LocalSize` 决定行数）：那是 RemoteViews 的能力边界，不是业务规则。
+
+深色不是另一套视图：应用侧 `LazerColors` 用 CompositionLocal 在 `LazerTheme` 里切换，
+小组件侧 `WidgetPalette` 的每个令牌是 `(light, dark)`，Glance 交给 day/night `ColorProvider`，
+Compose 预览用 `isSystemInDarkTheme()` 解析。API 31+ 的 RemoteViews 会同时携带两组色值，
+系统换主题即刻生效；API 26–30 只能在下一次刷新时重算。
 
 ---
 

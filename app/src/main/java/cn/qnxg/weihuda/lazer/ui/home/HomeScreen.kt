@@ -234,7 +234,7 @@ private fun TileView(tile: Tile, modifier: Modifier = Modifier) {
 	Column(
 		modifier = modifier
 			.clip(RoundedCornerShape(14.dp))
-			.background(Color.White)
+			.background(LazerColors.Surface)
 			.then(if (tile.onClick != null) Modifier.clickable(onClick = tile.onClick) else Modifier)
 			.padding(14.dp),
 		verticalArrangement = Arrangement.spacedBy(4.dp),

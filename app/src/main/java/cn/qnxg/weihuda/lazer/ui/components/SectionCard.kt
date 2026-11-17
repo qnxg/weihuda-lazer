@@ -35,7 +35,7 @@ fun SectionCard(
 	content: @Composable ColumnScope.() -> Unit,
 ) {
 	Card(
-		colors = CardDefaults.cardColors(containerColor = Color.White),
+		colors = CardDefaults.cardColors(containerColor = LazerColors.Surface),
 		shape = RoundedCornerShape(14.dp),
 		elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
 		modifier = Modifier

@@ -234,8 +234,8 @@ private fun LoginField(
 		keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
 		keyboardActions = KeyboardActions(onDone = { onDone() }),
 		colors = OutlinedTextFieldDefaults.colors(
-			focusedContainerColor = Color.White,
-			unfocusedContainerColor = Color.White,
+			focusedContainerColor = LazerColors.Surface,
+			unfocusedContainerColor = LazerColors.Surface,
 			focusedBorderColor = LazerColors.Brand,
 			unfocusedBorderColor = LazerColors.Line,
 			cursorColor = LazerColors.Brand,
