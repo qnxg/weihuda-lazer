@@ -101,13 +101,21 @@ class AppState(
 
 	fun open(target: Screen) {
 		if (target == Screen.Login) loginError = null
+		leaveScreen()
 		screen = target
 	}
 
 	fun back(): Boolean {
 		if (screen == Screen.Home) return false
+		leaveScreen()
 		screen = Screen.Home
 		return true
+	}
+
+	/** 换页时丢掉上一页的结果条：否则在另一张卡片上会看到上一张卡片的「已添加到桌面」。 */
+	private fun leaveScreen() {
+		notice = null
+		pinBlocked = false
 	}
 
 	/**
