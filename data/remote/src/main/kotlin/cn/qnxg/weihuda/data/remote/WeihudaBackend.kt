@@ -4,23 +4,29 @@
 
 package cn.qnxg.weihuda.data.remote
 
+import cn.qnxg.weihuda.core.entity.CampusCard
 import cn.qnxg.weihuda.core.entity.CampusNetwork
 import cn.qnxg.weihuda.core.entity.Course
 import cn.qnxg.weihuda.core.entity.Credentials
+import cn.qnxg.weihuda.core.entity.DormElectricity
 import cn.qnxg.weihuda.core.entity.Semester
 import cn.qnxg.weihuda.core.entity.Student
 import cn.qnxg.weihuda.core.port.AuthGateway
+import cn.qnxg.weihuda.core.port.CampusCardGateway
 import cn.qnxg.weihuda.core.port.CourseGateway
+import cn.qnxg.weihuda.core.port.DormElectricityGateway
 import cn.qnxg.weihuda.core.port.GatewayException
 import cn.qnxg.weihuda.core.port.NetworkGateway
 import cn.qnxg.weihuda.core.port.SemesterGateway
 import cn.qnxg.weihuda.core.port.StudentGateway
 import cn.qnxg.weihuda.data.remote.dto.BindRequestDto
+import cn.qnxg.weihuda.data.remote.dto.CardInfoDto
 import cn.qnxg.weihuda.data.remote.dto.CourseDto
 import cn.qnxg.weihuda.data.remote.dto.NetflowDto
 import cn.qnxg.weihuda.data.remote.dto.PowTicketDto
 import cn.qnxg.weihuda.data.remote.dto.SemesterDto
 import cn.qnxg.weihuda.data.remote.dto.StudentDto
+import cn.qnxg.weihuda.data.remote.dto.parseDormElectricity
 import cn.qnxg.weihuda.data.remote.dto.toEntity
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
@@ -53,7 +59,7 @@ const val PASSWORD_RESET_URL: String = "https://cas.hnu.edu.cn/V3/securitycenter
 private const val DEBUG_LOGIN_CODE: String = "testing"
 
 /**
- * 微生活后端的适配器：三个端口共用一处传输与拆包逻辑。
+ * 微生活后端的适配器：所有端口共用一处传输与拆包逻辑。
  *
  * 鉴权是裸 JWT（后端直接读 `Authorization` 头，没有 `Bearer` 前缀）。
  * 引擎由调用方注入，所以这个模块是纯 JVM 的，可以在 JVM 上直接编译与测试。
@@ -61,7 +67,8 @@ private const val DEBUG_LOGIN_CODE: String = "testing"
 class WeihudaBackend(
 	private val http: HttpClient,
 	baseUrl: String = DEFAULT_BASE_URL,
-) : SemesterGateway, CourseGateway, StudentGateway, NetworkGateway, AuthGateway {
+) : SemesterGateway, CourseGateway, StudentGateway, NetworkGateway, AuthGateway, CampusCardGateway,
+	DormElectricityGateway {
 
 	private val base: String = baseUrl.trimEnd('/')
 
@@ -79,6 +86,16 @@ class WeihudaBackend(
 
 	override suspend fun usage(credentials: Credentials): CampusNetwork =
 		fetch<NetflowDto>("$base/netflow", credentials).toEntity()
+
+	override suspend fun card(credentials: Credentials): CampusCard =
+		fetch<CardInfoDto>("$base/pt/card-info", credentials).toEntity()
+
+	/**
+	 * 后端按「园区 + 楼栋 + 房间」缓存四小时，[refresh] 传 0 就用缓存：电量变化不快，
+	 * 十五分钟一次的后台刷新没必要每次都去敲学校的电费系统。
+	 */
+	override suspend fun remaining(credentials: Credentials): DormElectricity =
+		parseDormElectricity(fetch<String>("$base/electricity?refresh=0", credentials))
 
 	/**
 	 * 绑定 + 取令牌两个请求拼成一次登录。

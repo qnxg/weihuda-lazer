@@ -9,6 +9,8 @@ import cn.qnxg.weihuda.core.entity.WidgetId
 import cn.qnxg.weihuda.core.port.GatewayException
 import cn.qnxg.weihuda.core.port.SemesterGateway
 import cn.qnxg.weihuda.core.port.SnapshotStore
+import cn.qnxg.weihuda.core.usecase.CardBalance
+import cn.qnxg.weihuda.core.usecase.ElectricityBalance
 import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.RefreshSemesterCountdownInteractor
 import cn.qnxg.weihuda.core.usecase.SemesterCountdown
@@ -119,6 +121,14 @@ class RefreshSemesterCountdownTest {
 			stored = snapshot
 			written = snapshot
 		}
+
+		override suspend fun readCardBalance(id: WidgetId): CardBalance? = null
+
+		override suspend fun writeCardBalance(id: WidgetId, snapshot: CardBalance) = Unit
+
+		override suspend fun readElectricityBalance(id: WidgetId): ElectricityBalance? = null
+
+		override suspend fun writeElectricityBalance(id: WidgetId, snapshot: ElectricityBalance) = Unit
 	}
 
 	private class FakeSemesterGateway(private val semester: Semester) : SemesterGateway {

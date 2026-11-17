@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cn.qnxg.weihuda.core.entity.CampusClock
 import cn.qnxg.weihuda.core.entity.Settings
+import cn.qnxg.weihuda.core.usecase.CardBalance
+import cn.qnxg.weihuda.core.usecase.ElectricityBalance
 import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.SemesterCountdown
 import cn.qnxg.weihuda.core.usecase.TodayCourses
@@ -47,7 +49,9 @@ import cn.qnxg.weihuda.lazer.R
 import cn.qnxg.weihuda.lazer.ui.Notice
 import cn.qnxg.weihuda.lazer.ui.login.SignedOutAvatar
 import cn.qnxg.weihuda.lazer.ui.theme.LazerColors
+import cn.qnxg.weihuda.widget.presentation.CardBalancePresenter
 import cn.qnxg.weihuda.widget.presentation.CountdownWidgetPresenter
+import cn.qnxg.weihuda.widget.presentation.ElectricityPresenter
 import cn.qnxg.weihuda.widget.presentation.NetworkWidgetPresenter
 import java.time.LocalDate
 
@@ -63,11 +67,15 @@ fun HomeScreen(
 	snapshot: TodayCourses?,
 	networkSnapshot: NetworkTraffic?,
 	countdownSnapshot: SemesterCountdown?,
+	cardSnapshot: CardBalance?,
+	electricitySnapshot: ElectricityBalance?,
 	notice: Notice?,
 	onOpenLogin: () -> Unit,
 	onOpenCourseSettings: () -> Unit,
 	onOpenNetworkSettings: () -> Unit,
 	onOpenCountdownSettings: () -> Unit,
+	onOpenCardSettings: () -> Unit,
+	onOpenElectricitySettings: () -> Unit,
 	onOpenSettings: () -> Unit,
 ) {
 	val signedIn = settings?.credentials?.isPresent == true
@@ -94,8 +102,18 @@ fun HomeScreen(
 		TileGroup(
 			title = "校园生活",
 			tiles = listOf(
-				Tile(icon = R.drawable.ic_card, title = "校园卡"),
-				Tile(icon = R.drawable.ic_bolt, title = "宿舍电量"),
+				Tile(
+					icon = R.drawable.ic_card,
+					title = "校园卡余额",
+					meta = cardStatus(signedIn, cardSnapshot),
+					onClick = onOpenCardSettings,
+				),
+				Tile(
+					icon = R.drawable.ic_bolt,
+					title = "宿舍电量",
+					meta = electricityStatus(signedIn, electricitySnapshot),
+					onClick = onOpenElectricitySettings,
+				),
 				Tile(
 					icon = R.drawable.ic_wifi,
 					title = "校园网",
@@ -315,6 +333,23 @@ private fun countdownStatus(snapshot: SemesterCountdown?): String {
 	val view = CountdownWidgetPresenter.present(snapshot, LocalDate.now(CampusClock.clock()))
 	if (!view.hasData) return view.emptyTitle ?: "刷新失败"
 	return "${view.eyebrow} ${view.metricValue} 天"
+}
+
+private fun cardStatus(signedIn: Boolean, snapshot: CardBalance?): String {
+	if (!signedIn || snapshot?.state == CardBalance.State.SIGNED_OUT) return "未登录"
+	if (snapshot == null) return "正在获取"
+	if (snapshot.state == CardBalance.State.FAILED || snapshot.card == null) return "刷新失败"
+	// 失败但仍有旧余额时，首页只说「上次刷新失败」，具体数字交给卡片本身
+	if (snapshot.failure != null) return "上次刷新失败"
+	return "余额 ${CardBalancePresenter.present(snapshot).value}"
+}
+
+private fun electricityStatus(signedIn: Boolean, snapshot: ElectricityBalance?): String {
+	if (!signedIn || snapshot?.state == ElectricityBalance.State.SIGNED_OUT) return "未登录"
+	if (snapshot == null) return "正在获取"
+	if (snapshot.state == ElectricityBalance.State.FAILED || snapshot.electricity == null) return "刷新失败"
+	if (snapshot.failure != null) return "上次刷新失败"
+	return "剩余 ${ElectricityPresenter.present(snapshot).value}"
 }
 
 private fun courseStatus(signedIn: Boolean, snapshot: TodayCourses?): String = when {

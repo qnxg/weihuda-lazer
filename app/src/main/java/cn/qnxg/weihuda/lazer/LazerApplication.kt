@@ -29,5 +29,17 @@ class LazerApplication : Application() {
 				requestRefresh()
 			}
 		}
+		library.campusCardWidget.run {
+			if (pinnedWidgetCount() > 0) {
+				ensureScheduled()
+				requestRefresh()
+			}
+		}
+		library.electricityWidget.run {
+			if (pinnedWidgetCount() > 0) {
+				ensureScheduled()
+				requestRefresh()
+			}
+		}
 	}
 }

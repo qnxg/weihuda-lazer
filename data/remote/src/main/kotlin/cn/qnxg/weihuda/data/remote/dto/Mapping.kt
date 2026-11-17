@@ -4,8 +4,10 @@
 
 package cn.qnxg.weihuda.data.remote.dto
 
+import cn.qnxg.weihuda.core.entity.CampusCard
 import cn.qnxg.weihuda.core.entity.CampusNetwork
 import cn.qnxg.weihuda.core.entity.Course
+import cn.qnxg.weihuda.core.entity.DormElectricity
 import cn.qnxg.weihuda.core.entity.Semester
 import cn.qnxg.weihuda.core.entity.Student
 import cn.qnxg.weihuda.core.port.GatewayException
@@ -87,3 +89,19 @@ private fun normalizeRatio(raw: Double, used: Double, quota: Double): Double = w
 
 /** 1.2 是合法的「超用 20%」，32.75 才是另一个单位。 */
 private const val RATIO_PERCENT_THRESHOLD = 1.5
+
+internal fun CardInfoDto.toEntity(): CampusCard = CampusCard(balanceYuan = balance)
+
+/**
+ * 电量接口的 `data` 是一个已经格式化好的字符串（如 `186.50度`），不是数字。
+ *
+ * 只取第一个数值：单位与小数位由学校页面决定，跟着它变会让客户端在校历、补贴之类的
+ * 后缀出现时整张卡片失败；拿不到任何数值才是真的失败。
+ */
+internal fun parseDormElectricity(raw: String): DormElectricity {
+	val number = ELECTRICITY_NUMBER.find(raw)?.value?.toDoubleOrNull()
+		?: throw GatewayException(code = -1, message = "电量格式无法识别：${raw.trim()}")
+	return DormElectricity(remainingKwh = number)
+}
+
+private val ELECTRICITY_NUMBER = Regex("""-?\d+(?:\.\d+)?""")

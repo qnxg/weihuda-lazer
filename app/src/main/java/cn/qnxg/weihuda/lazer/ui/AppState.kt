@@ -9,6 +9,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import cn.qnxg.weihuda.core.entity.Credentials
 import cn.qnxg.weihuda.core.entity.Settings
+import cn.qnxg.weihuda.core.usecase.CardBalance
+import cn.qnxg.weihuda.core.usecase.ElectricityBalance
 import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.SemesterCountdown
 import cn.qnxg.weihuda.core.usecase.SignInResult
@@ -35,6 +37,12 @@ sealed interface Screen {
 	/** 学期倒计时组件的设置。 */
 	data object CountdownSettings : Screen
 
+	/** 校园卡余额组件的设置。 */
+	data object CardSettings : Screen
+
+	/** 宿舍电量组件的设置。 */
+	data object ElectricitySettings : Screen
+
 	/** 应用设置：账号、后端地址与版本。 */
 	data object Settings : Screen
 }
@@ -54,6 +62,8 @@ class AppState(
 	private val courseWidget = library.courseWidget
 	private val networkWidget = library.networkWidget
 	private val countdownWidget = library.countdownWidget
+	private val cardWidget = library.campusCardWidget
+	private val electricityWidget = library.electricityWidget
 
 	var screen by mutableStateOf<Screen>(Screen.Home)
 		private set
@@ -68,6 +78,12 @@ class AppState(
 		private set
 
 	var countdownSnapshot by mutableStateOf<SemesterCountdown?>(null)
+		private set
+
+	var cardSnapshot by mutableStateOf<CardBalance?>(null)
+		private set
+
+	var electricitySnapshot by mutableStateOf<ElectricityBalance?>(null)
 		private set
 
 	var busy by mutableStateOf(false)
@@ -140,9 +156,7 @@ class AppState(
 	) {
 		scope.launch {
 			settings = library.settings()
-			snapshot = courseWidget.readSnapshot()
-			networkSnapshot = networkWidget.readSnapshot()
-			countdownSnapshot = countdownWidget.readSnapshot()
+			readSnapshots()
 
 			val current = settings?.credentials?.token.orEmpty()
 			val explicit = debugToken?.takeIf { it.isNotEmpty() && it != current }
@@ -170,6 +184,14 @@ class AppState(
 		scope.launch { refreshCountdownNow() }
 	}
 
+	fun refreshCard() {
+		scope.launch { refreshCardNow() }
+	}
+
+	fun refreshElectricity() {
+		scope.launch { refreshElectricityNow() }
+	}
+
 	/**
 	 * 保存后立刻刷新所有卡片。
 	 *
@@ -189,18 +211,29 @@ class AppState(
 		val course = runCatching { courseWidget.refresh() }
 		val network = runCatching { networkWidget.refresh() }
 		val countdown = runCatching { countdownWidget.refresh() }
+		val card = runCatching { cardWidget.refresh() }
+		val electricity = runCatching { electricityWidget.refresh() }
 		course.getOrNull()?.let { snapshot = it }
 		network.getOrNull()?.let { networkSnapshot = it }
 		countdown.getOrNull()?.let { countdownSnapshot = it }
+		card.getOrNull()?.let { cardSnapshot = it }
+		electricity.getOrNull()?.let { electricitySnapshot = it }
 
+		// 只报第一条原因：一张卡片失败不该把另一张的成功说成失败，也没必要让用户读五条一样的话
 		val failure = course.getOrNull()?.failure
 			?: course.exceptionOrNull()?.message
 			?: network.getOrNull()?.failure
 			?: network.exceptionOrNull()?.message
 			?: countdown.getOrNull()?.failure
 			?: countdown.exceptionOrNull()?.message
+			?: card.getOrNull()?.failure
+			?: card.exceptionOrNull()?.message
+			?: electricity.getOrNull()?.failure
+			?: electricity.exceptionOrNull()?.message
 		val signedOut = course.getOrNull()?.state == TodayCourses.State.SIGNED_OUT ||
-			network.getOrNull()?.state == NetworkTraffic.State.SIGNED_OUT
+			network.getOrNull()?.state == NetworkTraffic.State.SIGNED_OUT ||
+			card.getOrNull()?.state == CardBalance.State.SIGNED_OUT ||
+			electricity.getOrNull()?.state == ElectricityBalance.State.SIGNED_OUT
 		notice = when {
 			failure != null -> Notice("刷新失败：$failure", isError = true)
 			signedOut -> Notice("未登录，先登录再刷新", isError = true)
@@ -257,6 +290,40 @@ class AppState(
 
 	fun pinCountdown() = pinWidget(countdownWidget::pinToHomeScreen, countdownWidget::pinnedWidgetCount)
 
+	fun pinCard() = pinWidget(cardWidget::pinToHomeScreen, cardWidget::pinnedWidgetCount)
+
+	fun pinElectricity() = pinWidget(electricityWidget::pinToHomeScreen, electricityWidget::pinnedWidgetCount)
+
+	private suspend fun refreshCardNow() {
+		busy = true
+		runCatching { cardWidget.refresh() }
+			.onSuccess { result ->
+				cardSnapshot = result
+				notice = when {
+					result.failure != null -> Notice("刷新失败：${result.failure}", isError = true)
+					result.state == CardBalance.State.SIGNED_OUT -> Notice("未登录，先登录再刷新", isError = true)
+					else -> Notice("已刷新", isError = false)
+				}
+			}
+			.onFailure { notice = Notice("刷新失败：${it.message ?: "未知错误"}", isError = true) }
+		busy = false
+	}
+
+	private suspend fun refreshElectricityNow() {
+		busy = true
+		runCatching { electricityWidget.refresh() }
+			.onSuccess { result ->
+				electricitySnapshot = result
+				notice = when {
+					result.failure != null -> Notice("刷新失败：${result.failure}", isError = true)
+					result.state == ElectricityBalance.State.SIGNED_OUT -> Notice("未登录，先登录再刷新", isError = true)
+					else -> Notice("已刷新", isError = false)
+				}
+			}
+			.onFailure { notice = Notice("刷新失败：${it.message ?: "未知错误"}", isError = true) }
+		busy = false
+	}
+
 	private fun pinWidget(request: () -> Boolean, pinnedCount: () -> Int) {
 		pinSettled = false
 		pinBlocked = false
@@ -309,11 +376,18 @@ class AppState(
 			library.saveSettings(current.copy(credentials = Credentials("")))
 			refreshAllNow()
 			settings = library.settings()
-			snapshot = courseWidget.readSnapshot()
-			networkSnapshot = networkWidget.readSnapshot()
-			countdownSnapshot = countdownWidget.readSnapshot()
+			readSnapshots()
 			notice = Notice("已退出登录", isError = false)
 		}
+	}
+
+	/** 所有卡片的快照一起读：界面上看到的数字必须与桌面一致。 */
+	private suspend fun readSnapshots() {
+		snapshot = courseWidget.readSnapshot()
+		networkSnapshot = networkWidget.readSnapshot()
+		countdownSnapshot = countdownWidget.readSnapshot()
+		cardSnapshot = cardWidget.readSnapshot()
+		electricitySnapshot = electricityWidget.readSnapshot()
 	}
 }
 

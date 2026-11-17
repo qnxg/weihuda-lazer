@@ -42,13 +42,17 @@
 
 1. `core` 的 `import` 只有 `kotlin.*`、`java.time.*`、`cn.qnxg.weihuda.core.*`。想在实体里
    `@Serializable`，就是把 JSON 格式写进了内圈——那是 `data:local` 的事。
-2. `app` 不依赖 `data:*`，也不认识 ktor。它只有一个入口：`WidgetLibrary`（应用级配置，下面挂着每张卡片的 `CourseWidgetComponent` / `NetworkWidgetComponent`）。
+2. `app` 不依赖 `data:*`，也不认识 ktor。它只有一个入口：`WidgetLibrary`（应用级配置，下面挂着每张卡片的
+   `CourseWidgetComponent` / `NetworkWidgetComponent` / `CampusCardWidgetComponent` / `ElectricityWidgetComponent`）。
 3. `widget` 的公开面只有：`WidgetLibrary`（登录、设置、快照与 HTTP 的装配）与每张卡片的门面
-   （`CourseWidgetComponent`、`NetworkWidgetComponent`、`CountdownWidgetComponent`）、`presentation.*`
+   （`CourseWidgetComponent`、`NetworkWidgetComponent`、`CountdownWidgetComponent`、
+   `CampusCardWidgetComponent`、`ElectricityWidgetComponent`）、`presentation.*`
    （视图模型、presenter、尺寸与颜色规则），以及 Android 必须能反射创建的类（`CourseWidget`、
-   `NetworkWidget`、`CountdownWidget`、`CourseWidgetReceiver`、`NetworkWidgetReceiver`、
-   `CountdownWidgetReceiver`、`PinResultReceiver`、`RefreshWorker`、`NetworkRefreshWorker`、
-   `CountdownRefreshWorker`、`CountdownTickReceiver`、`RefreshAction`、`NetworkRefreshAction`
+   `NetworkWidget`、`CountdownWidget`、`CampusCardWidget`、`ElectricityWidget`、
+   `CourseWidgetReceiver`、`NetworkWidgetReceiver`、`CountdownWidgetReceiver`、
+   `CampusCardWidgetReceiver`、`ElectricityWidgetReceiver`、`PinResultReceiver`、
+   `RefreshWorker`、`NetworkRefreshWorker`、`CountdownRefreshWorker`、`CampusCardRefreshWorker`、
+   `ElectricityRefreshWorker`、`CountdownTickReceiver`、`RefreshAction`、`NetworkRefreshAction`
    ——它们由 `AndroidManifest.xml` / WorkManager / AlarmManager 按类名实例化，不能 `internal`）。
    其余一律 `internal`。
 
@@ -161,6 +165,13 @@ TodayCourses（输出数据）
 快照里存的是学期的绝对日期（开学日、假期开始日、下学期开学日），**存不下「还有几天」**：
 阶段与天数由 `Semester.countdownOn(today)` 在渲染时算，跨天由午夜闹钟重绘，取数则按天一次。
 
+「校园卡余额」与「宿舍电量」是两张只有 2×2 的单值卡片，走的是同一条路再简化一层：
+`CampusCardWidgetComponent` + `RefreshCardBalanceInteractor`（`GET /pt/card-info`）、
+`ElectricityWidgetComponent` + `RefreshElectricityBalanceInteractor`（`GET /electricity`）。
+两者的信息量相同（一个数字），所以共用 `MetricCardView` / `MetricCardContent` 这一套视图，
+presenter 各自负责货币符号与「度」的写法。这两个用例失败时保留上一次成功的读数、不设时间窗口：
+余额与电量是存量，过期的读数仍然是一个真实存在过的数字，卡片上的「刷新失败」已经说明它不是刚取的。
+
 边界上的数据形状是分开的，三处都不共用类型：
 
 | 边界                    | 类型                 | 谁定义                | 备注                                             |
@@ -170,6 +181,9 @@ TodayCourses（输出数据）
 | 用例 → 外界（输出数据） | `TodayCourses`       | `core.usecase`        | 已合并、已过滤，仍无任何格式化字符串             |
 | 适配器 → 用例（流量）   | `CampusNetwork`      | `core.entity`         | GB、元、0..1 的比例，不含文案                    |
 | 用例 → 外界（流量）     | `NetworkTraffic`     | `core.usecase`        | 三态 + 账户数字；格式化留给 presenter            |
+| 适配器 → 用例（余额）   | `CampusCard`         | `core.entity`         | 只有余额（元），卡号与流水属于账单页             |
+| 适配器 → 用例（电量）   | `DormElectricity`    | `core.entity`         | 只有度数；后端给的是「186.50度」这种字符串       |
+| 用例 → 外界（两张卡片） | `CardBalance`、`ElectricityBalance` | `core.usecase` | 三态 + 数字；格式化留给 presenter |
 | 落盘                    | `SnapshotDto`        | `data:local`          | 带 `version`，格式演进不惊动内圈；两张卡片各一份 |
 | 用例 → 视图             | `CourseWidgetView`   | `widget.presentation` | 文案、排序、状态都定好了；视图只摆放             |
 
@@ -187,13 +201,15 @@ TodayCourses（输出数据）
 - 没有登录 → 快照是 `SIGNED_OUT`，卡片显示「未登录 / 登录校园账号以使用所有组件」。
   应用里没有演示数据：空着比给一份假的课表诚实，也避免用户把假课当成当天安排。
 
-快照按 `WidgetId` 分键存储（`today-courses`、`campus-network`、`semester-countdown`）。加一种新卡片就是加一个 id
+快照按 `WidgetId` 分键存储（`today-courses`、`campus-network`、`semester-countdown`、`campus-card`、
+`dorm-electricity`）。加一种新卡片就是加一个 id
 和一组读写方法，而不是往同一份快照里塞字段——考试卡片与课程卡片的刷新节奏、数据来源、失败语义都不同，
 塞在一起只会互相牵制。
 
 有效期也随卡片而异：课表快照只在当天有效，跨天就丢弃；流量快照按月结算，所以刷新失败时保留的是
 **同一个月**上一次成功的结果——上个月的数字留在卡片上会被当成这个月的用量；学期快照不按时间过期，
-假期与开学都是绝对日期，旧数据最多是「不知道校历改了」，而阶段仍然按当前日期重算。
+假期与开学都是绝对日期，旧数据最多是「不知道校历改了」，而阶段仍然按当前日期重算；余额与电量是存量，
+旧读数不会因为时间流逝变成「另一个东西」，所以只要有过成功就留着，由「刷新失败」标出它不是刚取的。
 
 `SnapshotDto.version`
 让格式能演进：读到不认识的版本就当没有快照，桌面退回「正在获取课表」，而不是显示错位的数据或崩溃。
@@ -297,11 +313,14 @@ Compose 预览用 `isSystemInDarkTheme()` 解析。API 31+ 的 RemoteViews 会�
 `还有 47 天` 这类数字都不需要新数据。
 
 Worker 只做一件事：交给对应卡片的门面刷新（`WidgetLibrary.of(context).courseWidget.refresh()` /
-`.networkWidget.refresh()`）。它自己不装配适配器、不发请求、不清洗错误——那些都发生在用例与组件门面里。
+`.networkWidget.refresh()` / `.campusCardWidget.refresh()` / `.electricityWidget.refresh()`）。
+它自己不装配适配器、不发请求、不清洗错误——那些都发生在用例与组件门面里。
 
-两张卡片各自持有一个周期任务与一个一次性任务（`weihuda-course-refresh[-now]` /
-`weihuda-network-refresh[-now]`），排期策略只在 `WidgetScheduling` 里写一份：卡片之间的差别只是
-worker 与任务名，改间隔时不会漏掉某一张。
+四张卡片各自持有一个周期任务与一个一次性任务（`weihuda-course-refresh[-now]` /
+`weihuda-network-refresh[-now]` / `weihuda-card-refresh[-now]` / `weihuda-electricity-refresh[-now]`），
+排期策略只在 `WidgetScheduling` 里写一份：卡片之间的差别只是 worker 与任务名，改间隔时不会漏掉某一张。
+唯一与别处不同的是电量：后端按「园区 + 楼栋 + 房间」缓存四小时，适配器传 `refresh=0` 用缓存，
+十五分钟一次的后台刷新不会每回都去敲学校的电费系统。
 
 ---
 
@@ -355,10 +374,10 @@ worker 与任务名，改间隔时不会漏掉某一张。
 
 | 位置          | 测什么                                       | 现在的测试                                 |
 | ------------- | -------------------------------------------- | ------------------------------------------ |
-| `core`        | 周次、小节合并、状态、失败快照语义、用例编排 | `TimetableTest`、`RefreshTodayCoursesTest`、`RefreshNetworkTrafficTest`、`SemesterCountdownTest`、`RefreshSemesterCountdownTest` |
+| `core`        | 周次、小节合并、状态、失败快照语义、用例编排 | `TimetableTest`、`RefreshTodayCoursesTest`、`RefreshNetworkTrafficTest`、`SemesterCountdownTest`、`RefreshSemesterCountdownTest`、`RefreshCardBalanceTest`、`RefreshElectricityBalanceTest` |
 | `data:remote` | 信封拆包、字段映射、错误翻译                 | `ApiContractTest`                          |
-| `data:local`  | 快照往返、损坏数据、版本不认                 | `SnapshotJsonTest`、`NetworkSnapshotJsonTest`、`CountdownSnapshotJsonTest` |
-| `widget`      | presenter 的文案、状态重算、空态、尺寸规则   | `CourseWidgetPresenterTest`、`NetworkWidgetPresenterTest`、`CountdownWidgetPresenterTest`、`WidgetLayoutTest`、`CountdownWidgetLayoutTest` |
+| `data:local`  | 快照往返、损坏数据、版本不认                 | `SnapshotJsonTest`、`NetworkSnapshotJsonTest`、`CountdownSnapshotJsonTest`、`CardSnapshotJsonTest`、`ElectricitySnapshotJsonTest` |
+| `widget`      | presenter 的文案、状态重算、空态、尺寸规则   | `CourseWidgetPresenterTest`、`NetworkWidgetPresenterTest`、`CountdownWidgetPresenterTest`、`CardBalancePresenterTest`、`ElectricityPresenterTest`、`MetricCardLayoutTest`、`WidgetLayoutTest`、`CountdownWidgetLayoutTest` |
 | `app`         | 不写单元测试：界面只摆放 presenter 的输出    | —                                          |
 
 用例测试全部用假适配器 + 固定时钟，不启 Android、不发 HTTP。视图（RemoteViews）不做自动化测试，真机验证见
@@ -409,5 +428,8 @@ Gradle 9.9.0（wrapper）+ AGP 9.2.1 + Kotlin 2.4.21 + JDK 21 + compileSdk 36。
 | `CampusNetwork`                   | `GET /netflow`           | 本月已用、套餐额度、锁定状态与欠费          |
 | `NetworkTraffic`                  | —                        | 流量卡片的快照内容，按月有效                |
 | `Semester`                        | `GET /info/smester`      | 学年、学期、开学日；假期与下学期开学日是绝对日期 |
-| `SemesterCountdown`               | —                        | 学期卡片的快照内容，不随时间失效             |
-| `SemesterPhase`                   | —                        | 未开学 / 学期中 / 假期，渲染时按当前日期算   |
+| `SemesterCountdown`               | —                        | 学期卡片的快照内容，按天有效                |
+| `CampusCard`                      | `GET /pt/card-info`      | 校园卡余额（元）                            |
+| `CardBalance`                     | —                        | 余额卡片的快照内容                          |
+| `DormElectricity`                 | `GET /electricity`       | 剩余电量（度）；后端返回的是带单位的字符串  |
+| `ElectricityBalance`              | —                        | 电量卡片的快照内容                          |

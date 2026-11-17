@@ -74,3 +74,13 @@ internal data class NetflowMonthDto(
 	val basePackageUsed: Double = 0.0,
 	val basePackageUsedPer: Double = 0.0,
 )
+
+/**
+ * `GET /pt/card-info`：`{ "account": 368246, "balance": 84.0 }`。
+ *
+ * `account`（卡号）不在卡片上显示，所以不映射；要展示账单时再加，别让快照跟着一起长。
+ */
+@Serializable
+internal data class CardInfoDto(
+	val balance: Double = 0.0,
+)

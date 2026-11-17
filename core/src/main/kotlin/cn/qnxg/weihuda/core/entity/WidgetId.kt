@@ -16,5 +16,7 @@ value class WidgetId(val value: String) {
 		val TodayCourses = WidgetId("today-courses")
 		val CampusNetwork = WidgetId("campus-network")
 		val SemesterCountdown = WidgetId("semester-countdown")
+		val CampusCard = WidgetId("campus-card")
+		val DormElectricity = WidgetId("dorm-electricity")
 	}
 }

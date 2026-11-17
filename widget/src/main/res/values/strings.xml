@@ -6,4 +6,8 @@
     <string name="widget_network_description">在桌面查看本月已用流量、账号状态与欠费</string>
     <string name="widget_countdown_name">学期倒计时</string>
     <string name="widget_countdown_description">在桌面查看距离学期结束（或开学）还有多少天</string>
+    <string name="widget_card_name">校园卡余额</string>
+    <string name="widget_card_description">在桌面查看校园卡里的余额</string>
+    <string name="widget_electricity_name">宿舍电量</string>
+    <string name="widget_electricity_description">在桌面查看宿舍还剩多少电</string>
 </resources>

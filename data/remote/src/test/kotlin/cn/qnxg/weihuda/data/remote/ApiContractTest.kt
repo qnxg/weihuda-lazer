@@ -6,10 +6,12 @@ package cn.qnxg.weihuda.data.remote
 
 import cn.qnxg.weihuda.core.entity.CampusNetwork
 import cn.qnxg.weihuda.core.port.GatewayException
+import cn.qnxg.weihuda.data.remote.dto.CardInfoDto
 import cn.qnxg.weihuda.data.remote.dto.CourseDto
 import cn.qnxg.weihuda.data.remote.dto.NetflowDto
 import cn.qnxg.weihuda.data.remote.dto.NetflowMonthDto
 import cn.qnxg.weihuda.data.remote.dto.SemesterDto
+import cn.qnxg.weihuda.data.remote.dto.parseDormElectricity
 import cn.qnxg.weihuda.data.remote.dto.toEntity
 import java.time.LocalDate
 import kotlin.test.Test
@@ -174,5 +176,32 @@ class ApiContractTest {
 		)
 
 		assertEquals(0.25, dto.toEntity().usedRatio)
+	}
+
+	@Test
+	fun `card info keeps the balance and ignores the account number`() {
+		val text = """{"code":200,"data":{"account":368246,"balance":86.5,"unknownField":"忽略"}}"""
+
+		val card = unwrapEnvelope<CardInfoDto>(text).toEntity()
+
+		assertEquals(86.5, card.balanceYuan)
+	}
+
+	@Test
+	fun `electricity string is parsed into degrees and keeps its decimals`() {
+		assertEquals(186.5, parseDormElectricity("186.50度").remainingKwh)
+		assertEquals(0.0, parseDormElectricity("0度").remainingKwh)
+	}
+
+	@Test
+	fun `electricity without a unit is still a number`() {
+		assertEquals(79.6, parseDormElectricity("79.6").remainingKwh)
+	}
+
+	@Test
+	fun `electricity text without any number is a gateway failure`() {
+		val error = assertFailsWith<GatewayException> { parseDormElectricity("暂无数据") }
+
+		assertEquals(-1, error.code)
 	}
 }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 与校园卡一样固定 2×2，不提供拉伸 -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_electricity_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minHeight="110dp"
+    android:minWidth="110dp"
+    android:previewLayout="@layout/glance_default_loading_layout"
+    android:resizeMode="none"
+    android:targetCellHeight="2"
+    android:targetCellWidth="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

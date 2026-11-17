@@ -20,6 +20,8 @@ import cn.qnxg.weihuda.lazer.ui.countdown.CountdownSettingsScreen
 import cn.qnxg.weihuda.lazer.ui.course.CourseSettingsScreen
 import cn.qnxg.weihuda.lazer.ui.home.HomeScreen
 import cn.qnxg.weihuda.lazer.ui.login.LoginScreen
+import cn.qnxg.weihuda.lazer.ui.metric.CampusCardSettingsScreen
+import cn.qnxg.weihuda.lazer.ui.metric.ElectricitySettingsScreen
 import cn.qnxg.weihuda.lazer.ui.network.NetworkSettingsScreen
 import cn.qnxg.weihuda.lazer.ui.settings.SettingsScreen
 import cn.qnxg.weihuda.widget.WidgetLibrary
@@ -59,11 +61,15 @@ fun LazerApp(
 			snapshot = state.snapshot,
 			networkSnapshot = state.networkSnapshot,
 			countdownSnapshot = state.countdownSnapshot,
+			cardSnapshot = state.cardSnapshot,
+			electricitySnapshot = state.electricitySnapshot,
 			notice = state.notice,
 			onOpenLogin = { state.open(Screen.Login) },
 			onOpenCourseSettings = { state.open(Screen.CourseSettings) },
 			onOpenNetworkSettings = { state.open(Screen.NetworkSettings) },
 			onOpenCountdownSettings = { state.open(Screen.CountdownSettings) },
+			onOpenCardSettings = { state.open(Screen.CardSettings) },
+			onOpenElectricitySettings = { state.open(Screen.ElectricitySettings) },
 			onOpenSettings = { state.open(Screen.Settings) },
 		)
 
@@ -106,6 +112,28 @@ fun LazerApp(
 			canOpenAppSettings = miuiHome,
 			onPin = state::pinCountdown,
 			onRefresh = state::refreshCountdown,
+			onOpenAppSettings = { context.startActivity(appDetailsIntent(context)) },
+		)
+
+		Screen.CardSettings -> CampusCardSettingsScreen(
+			snapshot = state.cardSnapshot,
+			notice = state.notice,
+			busy = state.busy,
+			pinBlocked = state.pinBlocked,
+			canOpenAppSettings = miuiHome,
+			onPin = state::pinCard,
+			onRefresh = state::refreshCard,
+			onOpenAppSettings = { context.startActivity(appDetailsIntent(context)) },
+		)
+
+		Screen.ElectricitySettings -> ElectricitySettingsScreen(
+			snapshot = state.electricitySnapshot,
+			notice = state.notice,
+			busy = state.busy,
+			pinBlocked = state.pinBlocked,
+			canOpenAppSettings = miuiHome,
+			onPin = state::pinElectricity,
+			onRefresh = state::refreshElectricity,
 			onOpenAppSettings = { context.startActivity(appDetailsIntent(context)) },
 		)
 

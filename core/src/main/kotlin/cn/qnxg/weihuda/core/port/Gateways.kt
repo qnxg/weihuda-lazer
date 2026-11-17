@@ -54,3 +54,13 @@ interface AuthGateway {
 interface NetworkGateway {
 	suspend fun usage(credentials: Credentials): cn.qnxg.weihuda.core.entity.CampusNetwork
 }
+
+/** 校园卡余额（`GET /pt/card-info`），需要令牌。 */
+interface CampusCardGateway {
+	suspend fun card(credentials: Credentials): cn.qnxg.weihuda.core.entity.CampusCard
+}
+
+/** 宿舍剩余电量（`GET /electricity`），需要令牌。宿舍信息由后端从教务取，客户端不参与。 */
+interface DormElectricityGateway {
+	suspend fun remaining(credentials: Credentials): cn.qnxg.weihuda.core.entity.DormElectricity
+}

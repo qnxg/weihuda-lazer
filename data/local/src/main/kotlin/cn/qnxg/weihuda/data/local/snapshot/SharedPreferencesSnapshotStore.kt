@@ -7,6 +7,8 @@ package cn.qnxg.weihuda.data.local.snapshot
 import android.content.Context
 import cn.qnxg.weihuda.core.entity.WidgetId
 import cn.qnxg.weihuda.core.port.SnapshotStore
+import cn.qnxg.weihuda.core.usecase.CardBalance
+import cn.qnxg.weihuda.core.usecase.ElectricityBalance
 import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.SemesterCountdown
 import cn.qnxg.weihuda.core.usecase.TodayCourses
@@ -55,6 +57,28 @@ class SharedPreferencesSnapshotStore(context: Context) : SnapshotStore {
 	override suspend fun writeSemesterCountdown(id: WidgetId, snapshot: SemesterCountdown) {
 		withContext(Dispatchers.IO) {
 			prefs.edit().putString(key(id), CountdownSnapshotJson.encode(snapshot)).commit()
+		}
+	}
+
+	override suspend fun readCardBalance(id: WidgetId): CardBalance? =
+		withContext(Dispatchers.IO) {
+			CardSnapshotJson.decode(prefs.getString(key(id), null))
+		}
+
+	override suspend fun writeCardBalance(id: WidgetId, snapshot: CardBalance) {
+		withContext(Dispatchers.IO) {
+			prefs.edit().putString(key(id), CardSnapshotJson.encode(snapshot)).commit()
+		}
+	}
+
+	override suspend fun readElectricityBalance(id: WidgetId): ElectricityBalance? =
+		withContext(Dispatchers.IO) {
+			ElectricitySnapshotJson.decode(prefs.getString(key(id), null))
+		}
+
+	override suspend fun writeElectricityBalance(id: WidgetId, snapshot: ElectricityBalance) {
+		withContext(Dispatchers.IO) {
+			prefs.edit().putString(key(id), ElectricitySnapshotJson.encode(snapshot)).commit()
 		}
 	}
 

@@ -12,6 +12,8 @@ import cn.qnxg.weihuda.core.port.GatewayException
 import cn.qnxg.weihuda.core.port.NetworkGateway
 import cn.qnxg.weihuda.core.port.SettingsStore
 import cn.qnxg.weihuda.core.port.SnapshotStore
+import cn.qnxg.weihuda.core.usecase.CardBalance
+import cn.qnxg.weihuda.core.usecase.ElectricityBalance
 import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.RefreshNetworkTrafficInteractor
 import cn.qnxg.weihuda.core.usecase.SemesterCountdown
@@ -156,6 +158,14 @@ class RefreshNetworkTrafficTest {
 		override suspend fun readSemesterCountdown(id: WidgetId): SemesterCountdown? = null
 
 		override suspend fun writeSemesterCountdown(id: WidgetId, snapshot: SemesterCountdown) = Unit
+
+		override suspend fun readCardBalance(id: WidgetId): CardBalance? = null
+
+		override suspend fun writeCardBalance(id: WidgetId, snapshot: CardBalance) = Unit
+
+		override suspend fun readElectricityBalance(id: WidgetId): ElectricityBalance? = null
+
+		override suspend fun writeElectricityBalance(id: WidgetId, snapshot: ElectricityBalance) = Unit
 	}
 
 	private class FakeNetworkGateway(private val account: CampusNetwork) : NetworkGateway {

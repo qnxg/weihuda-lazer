@@ -5,6 +5,8 @@
 package cn.qnxg.weihuda.core.port
 
 import cn.qnxg.weihuda.core.entity.WidgetId
+import cn.qnxg.weihuda.core.usecase.CardBalance
+import cn.qnxg.weihuda.core.usecase.ElectricityBalance
 import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.SemesterCountdown
 import cn.qnxg.weihuda.core.usecase.TodayCourses
@@ -27,4 +29,12 @@ interface SnapshotStore {
 	suspend fun readSemesterCountdown(id: WidgetId): SemesterCountdown?
 
 	suspend fun writeSemesterCountdown(id: WidgetId, snapshot: SemesterCountdown)
+
+	suspend fun readCardBalance(id: WidgetId): CardBalance?
+
+	suspend fun writeCardBalance(id: WidgetId, snapshot: CardBalance)
+
+	suspend fun readElectricityBalance(id: WidgetId): ElectricityBalance?
+
+	suspend fun writeElectricityBalance(id: WidgetId, snapshot: ElectricityBalance)
 }
