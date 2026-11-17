@@ -39,11 +39,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cn.qnxg.weihuda.core.entity.Settings
+import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.TodayCourses
 import cn.qnxg.weihuda.lazer.R
 import cn.qnxg.weihuda.lazer.ui.Notice
 import cn.qnxg.weihuda.lazer.ui.login.SignedOutAvatar
 import cn.qnxg.weihuda.lazer.ui.theme.LazerColors
+import cn.qnxg.weihuda.widget.presentation.NetworkWidgetPresenter
 
 /**
  * 首页：顶部是使用者，下面按主题排列已实现与规划中的卡片。
@@ -55,9 +57,11 @@ import cn.qnxg.weihuda.lazer.ui.theme.LazerColors
 fun HomeScreen(
 	settings: Settings?,
 	snapshot: TodayCourses?,
+	networkSnapshot: NetworkTraffic?,
 	notice: Notice?,
 	onOpenLogin: () -> Unit,
 	onOpenCourseSettings: () -> Unit,
+	onOpenNetworkSettings: () -> Unit,
 	onOpenSettings: () -> Unit,
 ) {
 	val signedIn = settings?.credentials?.isPresent == true
@@ -79,7 +83,12 @@ fun HomeScreen(
 			tiles = listOf(
 				Tile(icon = R.drawable.ic_card, title = "校园卡"),
 				Tile(icon = R.drawable.ic_bolt, title = "宿舍电量"),
-				Tile(icon = R.drawable.ic_wifi, title = "校园网"),
+				Tile(
+					icon = R.drawable.ic_wifi,
+					title = "校园网",
+					meta = networkStatus(signedIn, networkSnapshot),
+					onClick = onOpenNetworkSettings,
+				),
 			),
 		),
 		TileGroup(
@@ -276,6 +285,16 @@ private data class Tile(
 )
 
 private data class TileGroup(val title: String, val tiles: List<Tile>)
+
+private fun networkStatus(signedIn: Boolean, snapshot: NetworkTraffic?): String {
+	if (!signedIn || snapshot?.state == NetworkTraffic.State.SIGNED_OUT) return "未登录"
+	if (snapshot == null) return "正在获取"
+	if (snapshot.state == NetworkTraffic.State.FAILED || snapshot.account == null) return "刷新失败"
+	// 失败但仍有旧数据时，首页只说「上次刷新失败」，具体用量交给卡片本身
+	if (snapshot.failure != null) return "上次刷新失败"
+	val view = NetworkWidgetPresenter.present(snapshot)
+	return "本月 ${view.usedLabel} · ${view.percentLabel.orEmpty()}"
+}
 
 private fun courseStatus(signedIn: Boolean, snapshot: TodayCourses?): String = when {
 	// 没登录时快照可能压根没写过，说「正在获取」会让人以为在转圈等数据。

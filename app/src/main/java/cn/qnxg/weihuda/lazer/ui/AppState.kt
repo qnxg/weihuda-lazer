@@ -9,9 +9,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import cn.qnxg.weihuda.core.entity.Credentials
 import cn.qnxg.weihuda.core.entity.Settings
+import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.SignInResult
 import cn.qnxg.weihuda.core.usecase.TodayCourses
-import cn.qnxg.weihuda.widget.CourseWidgetComponent
+import cn.qnxg.weihuda.widget.WidgetLibrary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -27,6 +28,9 @@ sealed interface Screen {
 	/** 今日课程组件的设置。 */
 	data object CourseSettings : Screen
 
+	/** 校园网流量组件的设置。 */
+	data object NetworkSettings : Screen
+
 	/** 应用设置：账号、后端地址与版本。 */
 	data object Settings : Screen
 }
@@ -34,15 +38,18 @@ sealed interface Screen {
 /**
  * 界面状态与动作。
  *
- * 它只知道 [CourseWidgetComponent] 这一个门面，所以界面里没有一处直接碰 HTTP、存储或 Glance。
+ * 它只知道 [WidgetLibrary] 这一个门面，所以界面里没有一处直接碰 HTTP、存储或 Glance。
  * 每个动作都在最后把最新快照读回来，界面上看到的数字与桌面上看到的一致。
  */
 class AppState(
-	private val component: CourseWidgetComponent,
+	private val library: WidgetLibrary,
 	private val scope: CoroutineScope,
 	/** 桌面是不是 MIUI：它把「一键添加」挡在「桌面快捷方式」权限后面，提示语要不同。 */
 	private val miuiHome: Boolean = false,
 ) {
+	private val courseWidget = library.courseWidget
+	private val networkWidget = library.networkWidget
+
 	var screen by mutableStateOf<Screen>(Screen.Home)
 		private set
 
@@ -50,6 +57,9 @@ class AppState(
 		private set
 
 	var snapshot by mutableStateOf<TodayCourses?>(null)
+		private set
+
+	var networkSnapshot by mutableStateOf<NetworkTraffic?>(null)
 		private set
 
 	var busy by mutableStateOf(false)
@@ -71,9 +81,9 @@ class AppState(
 	var pinBlocked by mutableStateOf(false)
 		private set
 
-	val defaultBaseUrl: String get() = component.defaultBaseUrl
+	val defaultBaseUrl: String get() = library.defaultBaseUrl
 
-	val passwordResetUrl: String get() = component.passwordResetUrl
+	val passwordResetUrl: String get() = library.passwordResetUrl
 
 	/** 本次一键添加是否已有结论：桌面回执与实例数复核谁先到算谁的。 */
 	private var pinSettled = false
@@ -81,7 +91,7 @@ class AppState(
 	init {
 		// 桌面真的放下实例后才会有这条广播；桌面静默拒绝时不会来。
 		scope.launch {
-			component.pinResults.collect {
+			library.pinResults.collect {
 				pinSettled = true
 				pinBlocked = false
 				notice = Notice("已添加到桌面", isError = false)
@@ -113,65 +123,107 @@ class AppState(
 		onFallbackApplied: () -> Unit = {},
 	) {
 		scope.launch {
-			settings = component.settings()
-			snapshot = component.readSnapshot()
+			settings = library.settings()
+			snapshot = courseWidget.readSnapshot()
+			networkSnapshot = networkWidget.readSnapshot()
 
 			val current = settings?.credentials?.token.orEmpty()
 			val explicit = debugToken?.takeIf { it.isNotEmpty() && it != current }
 			val fallback = fallbackToken?.takeIf { it.isNotEmpty() && current.isEmpty() }
 			val injected = explicit ?: fallback
 			if (injected != null) {
-				component.saveSettings(component.settings().copy(credentials = Credentials(injected)))
-				settings = component.settings()
-				refreshNow()
+				library.saveSettings(library.settings().copy(credentials = Credentials(injected)))
+				settings = library.settings()
+				refreshAllNow()
 			}
 			if (fallback != null) onFallbackApplied()
 		}
 	}
 
-	/** 手动刷新一次（不改设置）。 */
-	fun refresh() {
-		scope.launch { refreshNow() }
+	/** 手动刷新一张卡片。 */
+	fun refreshCourse() {
+		scope.launch { refreshCourseNow() }
+	}
+
+	fun refreshNetwork() {
+		scope.launch { refreshNetworkNow() }
 	}
 
 	/**
-	 * 保存后立刻刷新。
+	 * 保存后立刻刷新所有卡片。
 	 *
 	 * 两者必须在同一个协程里按顺序发生：刷新会重新读设置，先 launch 出去再刷新
 	 * 会读到旧配置（改了后端地址却用旧地址取数）。
 	 */
 	fun saveAndRefresh(next: Settings) {
 		scope.launch {
-			component.saveSettings(next)
+			library.saveSettings(next)
 			settings = next
-			refreshNow()
+			refreshAllNow()
 		}
 	}
 
-	private suspend fun refreshNow() {
+	private suspend fun refreshAllNow() {
 		busy = true
-		runCatching { component.refresh() }
+		val course = runCatching { courseWidget.refresh() }
+		val network = runCatching { networkWidget.refresh() }
+		course.getOrNull()?.let { snapshot = it }
+		network.getOrNull()?.let { networkSnapshot = it }
+
+		val failure = course.getOrNull()?.failure
+			?: course.exceptionOrNull()?.message
+			?: network.getOrNull()?.failure
+			?: network.exceptionOrNull()?.message
+		val signedOut = course.getOrNull()?.state == TodayCourses.State.SIGNED_OUT ||
+			network.getOrNull()?.state == NetworkTraffic.State.SIGNED_OUT
+		notice = when {
+			failure != null -> Notice("刷新失败：$failure", isError = true)
+			signedOut -> Notice("未登录，先登录再刷新", isError = true)
+			else -> Notice("已刷新", isError = false)
+		}
+		busy = false
+	}
+
+	private suspend fun refreshCourseNow() {
+		busy = true
+		runCatching { courseWidget.refresh() }
 			.onSuccess { result ->
 				snapshot = result
 				notice = when {
 					result.failure != null -> Notice("刷新失败：${result.failure}", isError = true)
-					// 没登录时刷新不产生任何请求，按钮不能看起来「点了没反应」。
 					result.state == TodayCourses.State.SIGNED_OUT -> Notice("未登录，先登录再刷新", isError = true)
 					else -> Notice("已刷新", isError = false)
 				}
 			}
-			.onFailure {
-				notice = Notice("刷新失败：${it.message ?: "未知错误"}", isError = true)
-			}
+			.onFailure { notice = Notice("刷新失败：${it.message ?: "未知错误"}", isError = true) }
 		busy = false
 	}
 
-	fun pinToHomeScreen() {
+	private suspend fun refreshNetworkNow() {
+		busy = true
+		runCatching { networkWidget.refresh() }
+			.onSuccess { result ->
+				networkSnapshot = result
+				notice = when {
+					result.failure != null -> Notice("刷新失败：${result.failure}", isError = true)
+					result.state == NetworkTraffic.State.SIGNED_OUT -> Notice("未登录，先登录再刷新", isError = true)
+					else -> Notice("已刷新", isError = false)
+				}
+			}
+			.onFailure { notice = Notice("刷新失败：${it.message ?: "未知错误"}", isError = true) }
+		busy = false
+	}
+
+	fun pinCourse() = pinWidget(courseWidget::pinToHomeScreen, courseWidget::pinnedWidgetCount)
+
+	fun pinNetwork() = pinWidget(networkWidget::pinToHomeScreen, networkWidget::pinnedWidgetCount)
+
+	private fun pinWidget(request: () -> Boolean, pinnedCount: () -> Int) {
 		pinSettled = false
 		pinBlocked = false
 		scope.launch {
-			val before = component.pinnedWidgetCount()
-			if (!component.pinToHomeScreen()) {
+			val before = pinnedCount()
+			if (!request()) {
 				pinSettled = true
 				notice = Notice("当前桌面不支持应用内添加，请长按桌面空白处添加小组件", isError = true)
 				return@launch
@@ -183,7 +235,7 @@ class AppState(
 			delay(PIN_CONFIRM_TIMEOUT_MS)
 			if (pinSettled) return@launch
 			pinSettled = true
-			if (component.pinnedWidgetCount() <= before) {
+			if (pinnedCount() <= before) {
 				pinBlocked = true
 				notice = Notice(if (miuiHome) PIN_MIUI else PIN_MANUAL, isError = true)
 			} else {
@@ -199,12 +251,12 @@ class AppState(
 		scope.launch {
 			signingIn = true
 			loginError = null
-			when (val result = component.signIn(stuId, password)) {
+			when (val result = library.signIn(stuId, password)) {
 				is SignInResult.Failure -> loginError = result.message
 				is SignInResult.Success -> {
-					settings = component.settings()
+					settings = library.settings()
 					screen = Screen.Home
-					refreshNow()
+					refreshAllNow()
 				}
 			}
 			signingIn = false
@@ -214,11 +266,12 @@ class AppState(
 	/** 退出登录：清掉令牌并重算快照，桌面与首页立刻回到未登录态。 */
 	fun signOut() {
 		scope.launch {
-			val current = settings ?: component.settings()
-			component.saveSettings(current.copy(credentials = Credentials("")))
-			component.refresh()
-			settings = component.settings()
-			snapshot = component.readSnapshot()
+			val current = settings ?: library.settings()
+			library.saveSettings(current.copy(credentials = Credentials("")))
+			refreshAllNow()
+			settings = library.settings()
+			snapshot = courseWidget.readSnapshot()
+			networkSnapshot = networkWidget.readSnapshot()
 			notice = Notice("已退出登录", isError = false)
 		}
 	}

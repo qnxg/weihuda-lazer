@@ -28,6 +28,8 @@ object WidgetPalette {
 	val ink = WidgetColor(0xFF1B2733.toInt(), 0xFFE6EDF3.toInt())
 	val inkMuted = WidgetColor(0xFF6A7883.toInt(), 0xFF93A1AE.toInt())
 	val error = WidgetColor(0xFFD64545.toInt(), 0xFFFF7B72.toInt())
+	/** 进度条与「正常 / 无欠费」这类正面状态；与状态色里的「上课中」同色系。 */
+	val success = WidgetColor(0xFF2E7D32.toInt(), 0xFF6ECB73.toInt())
 
 	private val ongoing = WidgetColor(0xFF2E7D32.toInt(), 0xFF6ECB73.toInt())
 	private val soon = WidgetColor(0xFFE08600.toInt(), 0xFFF5A623.toInt())

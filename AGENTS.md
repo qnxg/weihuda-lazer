@@ -13,8 +13,8 @@
 - 任何外部能力都从 `core/port/` 出去的接口进来；实现放在 `data:remote`（网络）或
   `data:local`（磁盘、Keystore）。
 - 后端字段名只出现在 `data:remote/dto/` 与 `Mapping.kt`；`core.entity` 用领域词汇。
-- `app` 不 import `io.ktor`、`androidx.glance`、`data.*`；它只认 `CourseWidgetComponent` 与
-  `widget.presentation.CourseWidget*`。
+- `app` 不 import `io.ktor`、`androidx.glance`、`data.*`；它只认 `WidgetLibrary`（含各卡片门面）与
+  `widget.presentation.*`。
 - `widget` 除门面与 presenter 之外一律 `internal`（Android 按类名反射创建的 receiver / worker 除外，见
   ARCHITECTURE.md）；不要把 Glance 类型泄漏给 `app`。
 
@@ -70,6 +70,8 @@
 - 状态色：上课中 `#2E7D32`，即将开始 `#E08600`，未开始 `#4A5560`，已结束 `#9AA5AF`，错误 `#D64545`。
 - 圆角 18dp（小组件）/ 14dp（应用卡片），不使用重阴影；小组件浅色白底、深色深灰蓝卡片。
 - 状态不能只靠颜色表达，4×3 / 4×4 形态必须显示状态文字。
+- 校园网卡片的进度条与「正常 / 无欠费」用 `WidgetPalette.success`（浅色 `#2E7D32`、深色 `#6ECB73`），
+  进度槽复用分割线色。
 - 课程行用「状态色左轨 + 时间竖排 + 名称 + `第 N 节 | 地点 | 教师`」；4×3 / 4×4 两行一节课，
   4×2 单行，2×2 只放聚焦的一节。
 - 文本超长按字符截断（Glance 1.2 的 `Text` 没有 `overflow` 参数），完整信息保留在应用内。

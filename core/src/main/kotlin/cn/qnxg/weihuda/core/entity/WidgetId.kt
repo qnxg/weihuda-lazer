@@ -14,5 +14,6 @@ package cn.qnxg.weihuda.core.entity
 value class WidgetId(val value: String) {
 	companion object {
 		val TodayCourses = WidgetId("today-courses")
+		val CampusNetwork = WidgetId("campus-network")
 	}
 }

@@ -5,6 +5,7 @@
 package cn.qnxg.weihuda.core.port
 
 import cn.qnxg.weihuda.core.entity.WidgetId
+import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.TodayCourses
 
 /**
@@ -17,4 +18,8 @@ interface SnapshotStore {
 	suspend fun readTodayCourses(id: WidgetId): TodayCourses?
 
 	suspend fun writeTodayCourses(id: WidgetId, snapshot: TodayCourses)
+
+	suspend fun readNetworkTraffic(id: WidgetId): NetworkTraffic?
+
+	suspend fun writeNetworkTraffic(id: WidgetId, snapshot: NetworkTraffic)
 }

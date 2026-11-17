@@ -49,3 +49,8 @@ interface StudentGateway {
 interface AuthGateway {
 	suspend fun signIn(stuId: String, password: String): Credentials
 }
+
+/** 校园网流量（`GET /netflow`），需要令牌。 */
+interface NetworkGateway {
+	suspend fun usage(credentials: Credentials): cn.qnxg.weihuda.core.entity.CampusNetwork
+}

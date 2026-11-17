@@ -7,6 +7,7 @@ package cn.qnxg.weihuda.data.local.snapshot
 import android.content.Context
 import cn.qnxg.weihuda.core.entity.WidgetId
 import cn.qnxg.weihuda.core.port.SnapshotStore
+import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.TodayCourses
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,6 +32,17 @@ class SharedPreferencesSnapshotStore(context: Context) : SnapshotStore {
 		withContext(Dispatchers.IO) {
 			// 提交而不是 apply：Worker 结束后进程可能被回收，丢一次快照桌面就空一次
 			prefs.edit().putString(key(id), SnapshotJson.encode(snapshot)).commit()
+		}
+	}
+
+	override suspend fun readNetworkTraffic(id: WidgetId): NetworkTraffic? =
+		withContext(Dispatchers.IO) {
+			NetworkSnapshotJson.decode(prefs.getString(key(id), null))
+		}
+
+	override suspend fun writeNetworkTraffic(id: WidgetId, snapshot: NetworkTraffic) {
+		withContext(Dispatchers.IO) {
+			prefs.edit().putString(key(id), NetworkSnapshotJson.encode(snapshot)).commit()
 		}
 	}
 

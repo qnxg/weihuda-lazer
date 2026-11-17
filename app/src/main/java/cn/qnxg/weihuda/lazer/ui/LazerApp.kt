@@ -19,8 +19,9 @@ import androidx.compose.ui.platform.LocalContext
 import cn.qnxg.weihuda.lazer.ui.course.CourseSettingsScreen
 import cn.qnxg.weihuda.lazer.ui.home.HomeScreen
 import cn.qnxg.weihuda.lazer.ui.login.LoginScreen
+import cn.qnxg.weihuda.lazer.ui.network.NetworkSettingsScreen
 import cn.qnxg.weihuda.lazer.ui.settings.SettingsScreen
-import cn.qnxg.weihuda.widget.CourseWidgetComponent
+import cn.qnxg.weihuda.widget.WidgetLibrary
 
 /**
  * 应用的最外层：一个很浅的导航栈（首页 → 某个卡片的设置 / 登录 → 应用设置）。
@@ -30,7 +31,7 @@ import cn.qnxg.weihuda.widget.CourseWidgetComponent
  */
 @Composable
 fun LazerApp(
-	component: CourseWidgetComponent,
+	library: WidgetLibrary,
 	debugToken: String? = null,
 	fallbackToken: String? = null,
 	onFallbackTokenApplied: () -> Unit = {},
@@ -38,7 +39,7 @@ fun LazerApp(
 	val context = LocalContext.current
 	val scope = rememberCoroutineScope()
 	val miuiHome = remember(context) { usesMiuiHome(context) }
-	val state = remember(component, scope, miuiHome) { AppState(component, scope, miuiHome) }
+	val state = remember(library, scope, miuiHome) { AppState(library, scope, miuiHome) }
 
 	// 注入用的令牌只在启动那一次生效：重组不该把用户后来手动登录的账号再顶掉。
 	LaunchedEffect(state) {
@@ -55,9 +56,11 @@ fun LazerApp(
 		Screen.Home -> HomeScreen(
 			settings = state.settings,
 			snapshot = state.snapshot,
+			networkSnapshot = state.networkSnapshot,
 			notice = state.notice,
 			onOpenLogin = { state.open(Screen.Login) },
 			onOpenCourseSettings = { state.open(Screen.CourseSettings) },
+			onOpenNetworkSettings = { state.open(Screen.NetworkSettings) },
 			onOpenSettings = { state.open(Screen.Settings) },
 		)
 
@@ -75,10 +78,21 @@ fun LazerApp(
 			busy = state.busy,
 			pinBlocked = state.pinBlocked,
 			canOpenAppSettings = miuiHome,
-			onPin = state::pinToHomeScreen,
-			onRefresh = state::refresh,
+			onPin = state::pinCourse,
+			onRefresh = state::refreshCourse,
 			onOpenAppSettings = { context.startActivity(appDetailsIntent(context)) },
 			onOpenExactAlarmSettings = { context.openExactAlarmSettings() },
+		)
+
+		Screen.NetworkSettings -> NetworkSettingsScreen(
+			snapshot = state.networkSnapshot,
+			notice = state.notice,
+			busy = state.busy,
+			pinBlocked = state.pinBlocked,
+			canOpenAppSettings = miuiHome,
+			onPin = state::pinNetwork,
+			onRefresh = state::refreshNetwork,
+			onOpenAppSettings = { context.startActivity(appDetailsIntent(context)) },
 		)
 
 		Screen.Settings -> SettingsScreen(

@@ -57,3 +57,20 @@ internal data class StudentDto(
 	val major: String? = null,
 	@SerialName("class") val className: String? = null,
 )
+
+/** `GET /netflow`：本月流量概览、账号锁定状态与欠费。 */
+@Serializable
+internal data class NetflowDto(
+	val thisMonth: NetflowMonthDto = NetflowMonthDto(),
+	/** `已锁定` / `未锁定` / `未知状态`。 */
+	val unlock: String? = null,
+	val payInfo: Double? = null,
+)
+
+/** `GET /netflow` 里 `thisMonth` 的字段；流量单位是 GB，比例是 0..1 的小数。 */
+@Serializable
+internal data class NetflowMonthDto(
+	val allBasePackageAmount: Double = 0.0,
+	val basePackageUsed: Double = 0.0,
+	val basePackageUsedPer: Double = 0.0,
+)

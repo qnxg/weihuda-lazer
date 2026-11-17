@@ -35,18 +35,20 @@
 | `core`        | Kotlin JVM      | 实体（`entity/`）、端口（`port/`）、用例（`usecase/`）                   | `android.*`、`io.ktor.*`、`kotlinx.serialization.*` |
 | `data:remote` | Kotlin JVM      | 微生活后端适配器、DTO、信封拆包、字段映射                               | `android.*`、Glance、Compose                        |
 | `data:local`  | Android library | SharedPreferences、Keystore、快照 JSON                                  | Glance、WorkManager、界面                           |
-| `widget`      | Android library | presenter / 视图模型、Glance 视图、Worker、`CourseWidgetComponent` 门面 | 直接暴露 Glance 类型给 `app`                        |
+| `widget`      | Android library | presenter / 视图模型、Glance 视图、Worker、`WidgetLibrary` 与各卡片门面 | 直接暴露 Glance 类型给 `app`                        |
 | `app`         | Android app     | Compose 界面、`AppState`、应用组合根                                    | `io.ktor.*`、直接依赖任何 `data:*`                  |
 
 三条硬规则：
 
 1. `core` 的 `import` 只有 `kotlin.*`、`java.time.*`、`cn.qnxg.weihuda.core.*`。想在实体里
    `@Serializable`，就是把 JSON 格式写进了内圈——那是 `data:local` 的事。
-2. `app` 不依赖 `data:*`，也不认识 ktor。它只有一个入口：`CourseWidgetComponent`。
-3. `widget` 的公开面只有三样东西：`CourseWidgetComponent`（动作与设置）、
-   `presentation.*`（视图模型、presenter、尺寸与颜色规则），以及 Android 必须能反射创建的五个类
-   （`CourseWidget`、`CourseWidgetReceiver`、`PinResultReceiver`、`RefreshWorker`、`RefreshAction`——
-   它们由 `AndroidManifest.xml` / WorkManager 按类名实例化，不能 `internal`）。其余一律 `internal`。
+2. `app` 不依赖 `data:*`，也不认识 ktor。它只有一个入口：`WidgetLibrary`（应用级配置，下面挂着每张卡片的 `CourseWidgetComponent` / `NetworkWidgetComponent`）。
+3. `widget` 的公开面只有：`WidgetLibrary`（登录、设置、快照与 HTTP 的装配）与每张卡片的门面
+   （`CourseWidgetComponent`、`NetworkWidgetComponent`）、`presentation.*`（视图模型、presenter、尺寸与颜色规则），
+   以及 Android 必须能反射创建的类（`CourseWidget`、`NetworkWidget`、`CourseWidgetReceiver`、
+   `NetworkWidgetReceiver`、`PinResultReceiver`、`RefreshWorker`、`NetworkRefreshWorker`、
+   `RefreshAction`、`NetworkRefreshAction`——它们由 `AndroidManifest.xml` / WorkManager 按类名实例化，
+   不能 `internal`）。其余一律 `internal`。
 
 ### 顶层目录为什么是「层」而不是「业务」
 
@@ -119,7 +121,7 @@ AppState：回到首页并立刻刷新
 Glance 点击 / WorkManager / 应用内按钮
         │
         ▼
-CourseWidgetComponent.refresh()                     组合根：按当前设置装配
+WidgetLibrary.courseWidget.refresh()                组合根：按当前设置装配
         │
         ▼
 RefreshTodayCoursesInteractor.refresh()             用例：编排
@@ -148,6 +150,10 @@ TodayCourses（输出数据）
               WidgetContent（Glance）   CourseWidgetPreview（Compose）
 ```
 
+「校园网流量」卡片走同一条路：组合根换成 `WidgetLibrary.networkWidget`，用例换成
+`RefreshNetworkTrafficInteractor`（`GET /netflow`），视图换成 `NetworkWidgetPresenter` / `NetworkWidgetView`。
+差别只在快照的有效期：课表按天，流量按月。
+
 边界上的数据形状是分开的，三处都不共用类型：
 
 | 边界                    | 类型                 | 谁定义                | 备注                                             |
@@ -155,7 +161,9 @@ TodayCourses（输出数据）
 | 后端 JSON → 适配器      | `*Dto`               | `data:remote`         | 只有适配器认识 `courseName` / `stuId` 这类字段名 |
 | 适配器 → 用例           | `Course`、`Semester` | `core.entity`         | 领域词汇；后端改名不影响它                       |
 | 用例 → 外界（输出数据） | `TodayCourses`       | `core.usecase`        | 已合并、已过滤，仍无任何格式化字符串             |
-| 落盘                    | `SnapshotDto`        | `data:local`          | 带 `version`，格式演进不惊动内圈                 |
+| 适配器 → 用例（流量）   | `CampusNetwork`      | `core.entity`         | GB、元、0..1 的比例，不含文案                    |
+| 用例 → 外界（流量）     | `NetworkTraffic`     | `core.usecase`        | 三态 + 账户数字；格式化留给 presenter            |
+| 落盘                    | `SnapshotDto`        | `data:local`          | 带 `version`，格式演进不惊动内圈；两张卡片各一份 |
 | 用例 → 视图             | `CourseWidgetView`   | `widget.presentation` | 文案、排序、状态都定好了；视图只摆放             |
 
 ---
@@ -172,8 +180,12 @@ TodayCourses（输出数据）
 - 没有登录 → 快照是 `SIGNED_OUT`，卡片显示「未登录 / 登录校园账号以使用所有组件」。
   应用里没有演示数据：空着比给一份假的课表诚实，也避免用户把假课当成当天安排。
 
-快照按 `WidgetId` 分键存储（现在是
-`today-courses`）。加一种新卡片就是加一个 id 和一组读写方法，而不是往同一份快照里塞字段——考试卡片与课程卡片的刷新节奏、数据来源、失败语义都不同，塞在一起只会互相牵制。
+快照按 `WidgetId` 分键存储（`today-courses`、`campus-network`）。加一种新卡片就是加一个 id
+和一组读写方法，而不是往同一份快照里塞字段——考试卡片与课程卡片的刷新节奏、数据来源、失败语义都不同，
+塞在一起只会互相牵制。
+
+有效期也随卡片而异：课表快照只在当天有效，跨天就丢弃；流量快照按月结算，所以刷新失败时保留的是
+**同一个月**上一次成功的结果——上个月的数字留在卡片上会被当成这个月的用量。
 
 `SnapshotDto.version`
 让格式能演进：读到不认识的版本就当没有快照，桌面退回「正在获取课表」，而不是显示错位的数据或崩溃。
@@ -270,7 +282,12 @@ Compose 预览用 `isSystemInDarkTheme()` 解析。API 31+ 的 RemoteViews 会�
 | 状态边界           | `AlarmManager` 单次闹钟       | 精确优先，只重绘；跨天时触发刷新    |
 | 最后一个实例被移除 | `cancelAll` + `cancel`        | 停止周期任务与状态闹钟              |
 
-Worker 只做一件事：`CourseWidgetComponent.of(context).refresh()`。它自己不装配适配器、不发请求、不清洗错误——那些都发生在用例与组件门面里。
+Worker 只做一件事：交给对应卡片的门面刷新（`WidgetLibrary.of(context).courseWidget.refresh()` /
+`.networkWidget.refresh()`）。它自己不装配适配器、不发请求、不清洗错误——那些都发生在用例与组件门面里。
+
+两张卡片各自持有一个周期任务与一个一次性任务（`weihuda-course-refresh[-now]` /
+`weihuda-network-refresh[-now]`），排期策略只在 `WidgetScheduling` 里写一份：卡片之间的差别只是
+worker 与任务名，改间隔时不会漏掉某一张。
 
 ---
 
@@ -298,8 +315,9 @@ Worker 只做一件事：`CourseWidgetComponent.of(context).refresh()`。它自�
 4. `data:remote`：DTO + 映射 + 实现 `ExamGateway`；
 5. `data:local`：`SnapshotStore` 的新方法 + `SnapshotDto`（新 format 版本）；
 6. `widget/`：`ExamWidget`（Glance）、`ExamWidgetReceiver`、`ExamPresenter` / `ExamView`、
-   `ExamRefreshWorker` 与它的排期；门面里加 `ExamWidgetComponent`；
-7. `app/ui/`：首页 grid 里加一张卡片（规划中就先置灰）与它的设置页；
+   `ExamRefreshWorker`（排期复用 `WidgetScheduling`，只给一个任务名）；门面加 `ExamWidgetComponent`，
+   并挂到 `WidgetLibrary` 上；
+7. `app/ui/`：首页 grid 里把卡片从「规划中」改成可点，加它的设置页与预览（文案来自同一个 presenter）；
 8. 文档：本文件、`README.md`、`AGENTS.md` 的「已实现的卡片」都要加。
 
 漏掉任何一层，编译器会告诉你（端口没实现、方法不存在）；漏掉文档不会——所以这一步靠 review 守住。
@@ -321,10 +339,10 @@ Worker 只做一件事：`CourseWidgetComponent.of(context).refresh()`。它自�
 
 | 位置          | 测什么                                       | 现在的测试                                 |
 | ------------- | -------------------------------------------- | ------------------------------------------ |
-| `core`        | 周次、小节合并、状态、失败快照语义、用例编排 | `TimetableTest`、`RefreshTodayCoursesTest` |
+| `core`        | 周次、小节合并、状态、失败快照语义、用例编排 | `TimetableTest`、`RefreshTodayCoursesTest`、`RefreshNetworkTrafficTest` |
 | `data:remote` | 信封拆包、字段映射、错误翻译                 | `ApiContractTest`                          |
-| `data:local`  | 快照往返、损坏数据、版本不认                 | `SnapshotJsonTest`                         |
-| `widget`      | presenter 的文案、状态重算、空态             | `CourseWidgetPresenterTest`                |
+| `data:local`  | 快照往返、损坏数据、版本不认                 | `SnapshotJsonTest`、`NetworkSnapshotJsonTest` |
+| `widget`      | presenter 的文案、状态重算、空态、尺寸规则   | `CourseWidgetPresenterTest`、`NetworkWidgetPresenterTest`、`WidgetLayoutTest` |
 | `app`         | 不写单元测试：界面只摆放 presenter 的输出    | —                                          |
 
 用例测试全部用假适配器 + 固定时钟，不启 Android、不发 HTTP。视图（RemoteViews）不做自动化测试，真机验证见
@@ -372,3 +390,5 @@ Gradle 9.9.0（wrapper）+ AGP 9.2.1 + Kotlin 2.4.21 + JDK 21 + compileSdk 36。
 | `Course.dayOfWeek`                | `day`                    | 1=周一…7=周日；后端历史版本用 0 表示周日   |
 | `Course.period`                   | `time`                   | 小节次 1…12                                |
 | `TodayCourses.State`              | —                        | `SIGNED_OUT` / `LOADED` / `FAILED`          |
+| `CampusNetwork`                   | `GET /netflow`           | 本月已用、套餐额度、锁定状态与欠费          |
+| `NetworkTraffic`                  | —                        | 流量卡片的快照内容，按月有效                |

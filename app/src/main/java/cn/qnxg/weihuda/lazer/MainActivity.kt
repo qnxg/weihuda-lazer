@@ -11,7 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import cn.qnxg.weihuda.lazer.ui.LazerApp
 import cn.qnxg.weihuda.lazer.ui.theme.LazerTheme
-import cn.qnxg.weihuda.widget.CourseWidgetComponent
+import cn.qnxg.weihuda.widget.WidgetLibrary
 
 /**
  * 唯一的 Activity：应用内所有页面都在同一个 Compose 树里。
@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
 		setContent {
 			LazerTheme {
 				LazerApp(
-					component = CourseWidgetComponent.of(this),
+					library = WidgetLibrary.of(this),
 					debugToken = debugToken(),
 					fallbackToken = debugFallbackToken(),
 					onFallbackTokenApplied = ::markFallbackTokenUsed,

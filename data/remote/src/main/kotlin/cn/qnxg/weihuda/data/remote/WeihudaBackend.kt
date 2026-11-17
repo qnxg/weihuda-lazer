@@ -4,6 +4,7 @@
 
 package cn.qnxg.weihuda.data.remote
 
+import cn.qnxg.weihuda.core.entity.CampusNetwork
 import cn.qnxg.weihuda.core.entity.Course
 import cn.qnxg.weihuda.core.entity.Credentials
 import cn.qnxg.weihuda.core.entity.Semester
@@ -11,10 +12,12 @@ import cn.qnxg.weihuda.core.entity.Student
 import cn.qnxg.weihuda.core.port.AuthGateway
 import cn.qnxg.weihuda.core.port.CourseGateway
 import cn.qnxg.weihuda.core.port.GatewayException
+import cn.qnxg.weihuda.core.port.NetworkGateway
 import cn.qnxg.weihuda.core.port.SemesterGateway
 import cn.qnxg.weihuda.core.port.StudentGateway
 import cn.qnxg.weihuda.data.remote.dto.BindRequestDto
 import cn.qnxg.weihuda.data.remote.dto.CourseDto
+import cn.qnxg.weihuda.data.remote.dto.NetflowDto
 import cn.qnxg.weihuda.data.remote.dto.PowTicketDto
 import cn.qnxg.weihuda.data.remote.dto.SemesterDto
 import cn.qnxg.weihuda.data.remote.dto.StudentDto
@@ -58,7 +61,7 @@ private const val DEBUG_LOGIN_CODE: String = "testing"
 class WeihudaBackend(
 	private val http: HttpClient,
 	baseUrl: String = DEFAULT_BASE_URL,
-) : SemesterGateway, CourseGateway, StudentGateway, AuthGateway {
+) : SemesterGateway, CourseGateway, StudentGateway, NetworkGateway, AuthGateway {
 
 	private val base: String = baseUrl.trimEnd('/')
 
@@ -73,6 +76,9 @@ class WeihudaBackend(
 
 	override suspend fun current(credentials: Credentials): Student =
 		fetch<StudentDto>("$base/info/user", credentials).toEntity()
+
+	override suspend fun usage(credentials: Credentials): CampusNetwork =
+		fetch<NetflowDto>("$base/netflow", credentials).toEntity()
 
 	/**
 	 * 绑定 + 取令牌两个请求拼成一次登录。

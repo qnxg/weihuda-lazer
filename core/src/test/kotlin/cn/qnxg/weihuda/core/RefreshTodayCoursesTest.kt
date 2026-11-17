@@ -16,6 +16,7 @@ import cn.qnxg.weihuda.core.port.SemesterGateway
 import cn.qnxg.weihuda.core.port.SettingsStore
 import cn.qnxg.weihuda.core.port.SnapshotStore
 import cn.qnxg.weihuda.core.port.StudentGateway
+import cn.qnxg.weihuda.core.usecase.NetworkTraffic
 import cn.qnxg.weihuda.core.usecase.RefreshTodayCoursesInteractor
 import cn.qnxg.weihuda.core.usecase.TodayCourses
 import java.time.Clock
@@ -189,6 +190,10 @@ class RefreshTodayCoursesTest {
 			stored = snapshot
 			written = snapshot
 		}
+
+		override suspend fun readNetworkTraffic(id: WidgetId): NetworkTraffic? = null
+
+		override suspend fun writeNetworkTraffic(id: WidgetId, snapshot: NetworkTraffic) = Unit
 	}
 
 	private class FakeSemesterGateway(private val semester: Semester) : SemesterGateway {

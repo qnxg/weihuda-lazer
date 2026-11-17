@@ -5,20 +5,15 @@
 package cn.qnxg.weihuda.widget
 
 import android.content.Context
-import android.content.Intent
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalSize
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionRunCallback
-import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
-import androidx.glance.color.ColorProvider as DayNightColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -39,20 +34,9 @@ import cn.qnxg.weihuda.core.entity.CourseStatus
 import cn.qnxg.weihuda.widget.presentation.CourseWidgetView
 import cn.qnxg.weihuda.widget.presentation.FocusCard
 import cn.qnxg.weihuda.widget.presentation.SessionRow
-import cn.qnxg.weihuda.widget.presentation.WidgetColor
 import cn.qnxg.weihuda.widget.presentation.WidgetDensity
 import cn.qnxg.weihuda.widget.presentation.WidgetLayout
 import cn.qnxg.weihuda.widget.presentation.WidgetPalette
-
-internal val COMPACT_SIZE = DpSize(110.dp, 110.dp)
-
-/** 4×2，多数启动器把它排得更松，实际高度会落在 4×3。 */
-internal val WIDE_SIZE = DpSize(250.dp, 110.dp)
-
-internal val MEDIUM_SIZE = DpSize(250.dp, 170.dp)
-
-/** 4×4 */
-internal val LARGE_SIZE = DpSize(250.dp, 250.dp)
 
 private val surface = WidgetPalette.surface.provider()
 private val line = WidgetPalette.line.provider()
@@ -60,9 +44,6 @@ private val brand = WidgetPalette.brand.provider()
 private val ink = WidgetPalette.ink.provider()
 private val inkMuted = WidgetPalette.inkMuted.provider()
 private val error = WidgetPalette.error.provider()
-
-private fun WidgetColor.provider(): ColorProvider =
-	DayNightColorProvider(day = Color(light), night = Color(dark))
 
 /**
  * 小组件的视图，属于 Humble Object：只把 [CourseWidgetView] 摆到屏幕上，不做业务判断。
@@ -77,12 +58,7 @@ internal fun WidgetContent(context: Context, view: CourseWidgetView) {
 	val heightDp = size.height.value.toInt()
 	val mode = WidgetLayout.density(size.width.value.toInt(), heightDp)
 	val rows = WidgetLayout.visibleRows(heightDp, mode)
-	// 必须用带 Component 的显式 Intent：Glance 会给 Intent 附加 data URI，
-	// 隐式 Intent（只带 package）会因此匹配不到启动 Activity。
-	val openApp = actionStartActivity(
-		context.packageManager.getLaunchIntentForPackage(context.packageName)
-			?: Intent(Intent.ACTION_MAIN).setPackage(context.packageName),
-	)
+	val openApp = openAppAction(context)
 
 	Column(
 		modifier = GlanceModifier
@@ -139,13 +115,12 @@ private fun Divider() {
 /** 行分割线从状态轨右侧开始，和参考图一样让左侧竖条保持连续。 */
 @Composable
 private fun RowDivider() {
-	Box(
-		modifier = GlanceModifier
-			.fillMaxWidth()
-			.padding(start = 3.dp)
-			.height(1.dp)
-			.background(line),
-	) {}
+	// padding 要加在外层：Glance 的 background 会跳过同一元素上的 padding
+	Row(modifier = GlanceModifier.fillMaxWidth().padding(start = 3.dp)) {
+		Box(
+			modifier = GlanceModifier.defaultWeight().height(1.dp).background(line),
+		) {}
+	}
 }
 
 @Composable
@@ -418,9 +393,5 @@ private fun Footer(view: CourseWidgetView) {
 		)
 	}
 }
-
-/** Glance 1.2 的 Text 没有 overflow 参数，按字符数手动截断。 */
-internal fun String.clip(max: Int): String =
-	if (length <= max) this else take((max - 1).coerceAtLeast(1)) + "…"
 
 private fun statusColor(status: CourseStatus): ColorProvider = WidgetPalette.status(status).provider()

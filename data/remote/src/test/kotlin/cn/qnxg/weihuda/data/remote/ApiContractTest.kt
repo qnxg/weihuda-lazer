@@ -4,8 +4,11 @@
 
 package cn.qnxg.weihuda.data.remote
 
+import cn.qnxg.weihuda.core.entity.CampusNetwork
 import cn.qnxg.weihuda.core.port.GatewayException
 import cn.qnxg.weihuda.data.remote.dto.CourseDto
+import cn.qnxg.weihuda.data.remote.dto.NetflowDto
+import cn.qnxg.weihuda.data.remote.dto.NetflowMonthDto
 import cn.qnxg.weihuda.data.remote.dto.SemesterDto
 import cn.qnxg.weihuda.data.remote.dto.toEntity
 import java.time.LocalDate
@@ -83,5 +86,65 @@ class ApiContractTest {
 		}
 
 		assertEquals(-1, error.code)
+	}
+
+	@Test
+	fun `netflow fields are mapped onto the campus network entity`() {
+		val text = """
+			{"code":200,"data":{
+				"thisMonth":{
+					"download":"12.1G","upload":"0.7G","all":"12.8G",
+					"allBasePackageAmount":40.0,"basePackageUsed":12.8,"basePackageUsedPer":0.32,
+					"extendPackageUsed":0.0,"unknownField":"忽略"
+				},
+				"unlock":"未锁定","payInfo":0.0
+			}}
+		""".trimIndent()
+
+		val network = unwrapEnvelope<NetflowDto>(text).toEntity()
+
+		assertEquals(12.8, network.usedGb)
+		assertEquals(40.0, network.quotaGb)
+		assertEquals(0.32, network.usedRatio)
+		assertEquals(CampusNetwork.AccountStatus.NORMAL, network.status)
+		assertEquals(0.0, network.overdueYuan)
+	}
+
+	@Test
+	fun `locked account and overdue payment both survive the mapping`() {
+		val dto = NetflowDto(
+			thisMonth = NetflowMonthDto(allBasePackageAmount = 40.0, basePackageUsed = 41.0, basePackageUsedPer = 1.025),
+			unlock = "已锁定",
+			payInfo = 12.5,
+		)
+
+		val network = dto.toEntity()
+
+		assertEquals(CampusNetwork.AccountStatus.LOCKED, network.status)
+		assertEquals(12.5, network.overdueYuan)
+		// 超用 2.5% 仍然是合法的小数比例，不能被当成百分数再除一百
+		assertEquals(1.025, network.usedRatio)
+	}
+
+	@Test
+	fun `ratio given as a whole percentage is normalized`() {
+		val dto = NetflowDto(
+			thisMonth = NetflowMonthDto(allBasePackageAmount = 40.0, basePackageUsed = 12.8, basePackageUsedPer = 32.0),
+			unlock = "未知状态",
+		)
+
+		val network = dto.toEntity()
+
+		assertEquals(0.32, network.usedRatio)
+		assertEquals(CampusNetwork.AccountStatus.UNKNOWN, network.status)
+	}
+
+	@Test
+	fun `missing ratio falls back to used over quota`() {
+		val dto = NetflowDto(
+			thisMonth = NetflowMonthDto(allBasePackageAmount = 40.0, basePackageUsed = 10.0, basePackageUsedPer = 0.0),
+		)
+
+		assertEquals(0.25, dto.toEntity().usedRatio)
 	}
 }

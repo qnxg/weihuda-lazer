@@ -21,18 +21,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cn.qnxg.weihuda.core.entity.CampusClock
-import cn.qnxg.weihuda.core.entity.CourseStatus
 import cn.qnxg.weihuda.core.usecase.TodayCourses
 import cn.qnxg.weihuda.widget.presentation.CourseWidgetPresenter
 import cn.qnxg.weihuda.widget.presentation.CourseWidgetView
@@ -44,20 +41,6 @@ import cn.qnxg.weihuda.widget.presentation.WidgetPalette
 import java.time.LocalTime
 
 enum class PreviewMode { COMPACT, WIDE, LARGE }
-
-/** 桌面令牌的 Compose 版本；颜色只有 [WidgetPalette] 一份。 */
-@Immutable
-private class PreviewColors(private val night: Boolean) {
-	val surface = Color(WidgetPalette.surface.resolve(night))
-	val line = Color(WidgetPalette.line.resolve(night))
-	val brand = Color(WidgetPalette.brand.resolve(night))
-	val ink = Color(WidgetPalette.ink.resolve(night))
-	val inkMuted = Color(WidgetPalette.inkMuted.resolve(night))
-	val error = Color(WidgetPalette.error.resolve(night))
-
-	fun status(status: CourseStatus): Color =
-		Color(WidgetPalette.status(status).resolve(night))
-}
 
 /**
  * 应用内的近似预览。
